@@ -1,5 +1,6 @@
-const CACHE_NAME = 'cdm-career-shell-v2';
-const APP_SHELL = ['/', '/manifest.webmanifest', '/The_Colegio_de_Montalban_Seal.png'];
+const CACHE_NAME = 'cdm-career-shell-v3';
+const BASE_PATH = new URL('./', self.registration.scope).pathname;
+const APP_SHELL = [BASE_PATH, `${BASE_PATH}manifest.webmanifest`, `${BASE_PATH}The_Colegio_de_Montalban_Seal.png`];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -27,10 +28,10 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+          caches.open(CACHE_NAME).then((cache) => cache.put(BASE_PATH, copy));
           return response;
         })
-        .catch(() => caches.match('/')),
+        .catch(() => caches.match(BASE_PATH)),
     );
     return;
   }

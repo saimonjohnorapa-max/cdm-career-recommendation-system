@@ -28,7 +28,19 @@ body {
   background-color: var(--color-school-cream);
   color: #1f2937;
   line-height: 1.6;
+  overflow-x: hidden;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
 }
+
+.app-shell,
+.main-content,
+.main-content > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+img, video, canvas, svg { max-width: 100%; }
 
 a { color: inherit; text-decoration: none; }
 
@@ -39,6 +51,14 @@ input,
 select,
 textarea {
   font-family: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -257,5 +277,25 @@ input:focus, textarea:focus, select:focus {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  button,
+  .nav-link,
+  .nav-link-mobile,
+  .logout-btn {
+    min-height: 44px;
+  }
+
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+    font-size: 16px;
   }
 }
