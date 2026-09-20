@@ -15,6 +15,8 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
 
 COPY . .
 
+RUN rm -f bootstrap/cache/*.php
+
 RUN mkdir -p storage/framework/cache storage/framework/sessions \
     storage/framework/views bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
