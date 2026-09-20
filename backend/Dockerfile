@@ -1,7 +1,7 @@
 FROM php:8.3-cli
 
 RUN apt-get update \
-    && apt-get install -y libzip-dev default-mysql-client \
+    && apt-get install -y libonig-dev libzip-dev default-mysql-client \
     && docker-php-ext-install pdo_mysql mbstring zip \
     && rm -rf /var/lib/apt/lists/*
 
