@@ -245,6 +245,16 @@ class AuthOtpService
             ));
         } catch (Throwable $exception) {
             report($exception);
+            logger()->error('OTP email delivery failed.', [
+                'mailer' => (string) config('mail.default'),
+                'host' => (string) config('mail.mailers.smtp.host'),
+                'port' => (int) config('mail.mailers.smtp.port'),
+                'encryption' => (string) config('mail.mailers.smtp.encryption'),
+                'username' => (string) config('mail.mailers.smtp.username'),
+                'from' => (string) config('mail.from.address'),
+                'exception' => get_class($exception),
+                'error' => $exception->getMessage(),
+            ]);
             $challenge->forceFill(['consumed_at' => now()])->save();
 
             throw new OtpException(
