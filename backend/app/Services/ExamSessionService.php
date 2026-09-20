@@ -11,7 +11,16 @@ class ExamSessionService
     public const MAX_ATTEMPTS = 2;
     public function bank()
     {
-        $bank = ExamQuestion::where('is_active', true)->orderBy('question_number')->orderBy('id')->lockForUpdate()->get()->groupBy('category');
+        $bank = ExamQuestion::where('is_active', true)
+            ->orderBy('question_number')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->groupBy('category')
+            ->map(function ($questions) {
+                $unique = $questions->unique('question_text')->values();
+                return $unique->count() >= 20 ? $unique : $questions->values();
+            });
         return collect(ProgramMatcher::INTEREST_CATEGORIES)->shuffle()->flatMap(fn ($category) => ($bank->get($category) ?? collect())->shuffle()->take(20))->values();
     }
 
