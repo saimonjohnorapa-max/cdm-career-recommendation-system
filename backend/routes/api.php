@@ -28,6 +28,15 @@ Route::get('/storage/{path}', function ($path) {
         abort(404);
     }
 
+    if (str_starts_with($path, 'course-image/')) {
+        $course = \App\Models\Course::find((int) str_replace('course-image/', '', $path));
+        abort_unless($course?->image_data, 404);
+        return response(base64_decode($course->image_data), 200, [
+            'Content-Type' => $course->image_mime_type ?: 'application/octet-stream',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+    }
+
     $disk = Storage::disk('public');
     if (!$disk->exists($path)) {
         return response('', 404);
@@ -40,6 +49,7 @@ Route::get('/storage/{path}', function ($path) {
 })->where('path', '.*');
 
 // Courses (public)
+Route::get('/courses/{id}/image', [CourseController::class, 'image']);
 Route::get('/courses', [CourseController::class, 'getAllCourses']);
 Route::get('/courses/{id}', [CourseController::class, 'getCourseDetails']);
 Route::post('/assistant/respond', [VoiceAssistantController::class, 'respond'])->middleware('throttle:30,1');

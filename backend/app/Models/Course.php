@@ -17,6 +17,8 @@ class Course extends Model
         'institute',
         'career_paths',
         'image_path',
+        'image_data',
+        'image_mime_type',
         'program_type',
         'is_active',
         'is_recommendable',
@@ -32,6 +34,8 @@ class Course extends Model
         'display_order' => 'integer',
         'recommendation_profile' => 'array',
     ];
+
+    protected $hidden = ['image_data'];
 
     public function recommendations()
     {

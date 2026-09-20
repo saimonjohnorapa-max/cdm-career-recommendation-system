@@ -260,6 +260,9 @@ class AdminManagementController extends Controller
     public function storeCourse(Request $request)
     {
         $course = Course::create($this->storeCourseImage($request, $this->validateCourse($request)));
+        if ($course->image_data) {
+            $course->update(['image_path' => 'course-image/' . $course->id]);
+        }
         $this->log($request, 'course.created', $course);
         return response()->json(['success' => true, 'course' => $course], 201);
     }
@@ -267,6 +270,9 @@ class AdminManagementController extends Controller
     public function updateCourse(Request $request, Course $course)
     {
         $course->update($this->storeCourseImage($request, $this->validateCourse($request, $course), $course));
+        if ($course->image_data && $course->image_path !== 'course-image/' . $course->id) {
+            $course->update(['image_path' => 'course-image/' . $course->id]);
+        }
         $this->log($request, 'course.updated', $course);
         return response()->json(['success' => true, 'course' => $course->fresh()]);
     }
@@ -431,7 +437,10 @@ class AdminManagementController extends Controller
         unset($data['image']);
         if (!$request->hasFile('image')) return $data;
         if ($course?->image_path) Storage::disk('public')->delete($course->image_path);
-        $data['image_path'] = $request->file('image')->store('programs', 'public');
+        $file = $request->file('image');
+        $data['image_path'] = null;
+        $data['image_data'] = base64_encode(file_get_contents($file->getRealPath()));
+        $data['image_mime_type'] = $file->getMimeType();
         return $data;
     }
 
