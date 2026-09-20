@@ -50,7 +50,10 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Combine Pages artifacts
-        run: cp -R admin/dist frontend/dist/admin
+        run: |
+          mkdir -p frontend/dist/admin
+          cp -R admin/dist/. frontend/dist/admin/
+          touch frontend/dist/.nojekyll
 
       - uses: actions/configure-pages@v5
 
