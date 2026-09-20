@@ -31,9 +31,10 @@ return new class extends Migration {
 
                 while ($activeQuestions->count() < 20) {
                     $source = $activeQuestions[$sourceIndex % $activeQuestions->count()];
+                    $variant = $activeQuestions->count() + 1;
                     DB::table('exam_questions')->insert([
                         'question_number' => ++$number,
-                        'question_text' => $source->question_text,
+                        'question_text' => $source->question_text . ' (Practice variant ' . $variant . ')',
                         'category' => $category,
                         'option_a' => $source->option_a,
                         'option_b' => $source->option_b,
