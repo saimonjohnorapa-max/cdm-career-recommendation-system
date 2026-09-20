@@ -15,6 +15,10 @@ return [
         'array' => ['transport' => 'array'],
         'log' => ['transport' => 'log', 'channel' => env('MAIL_LOG_CHANNEL')],
     ],
+    'brevo' => [
+        'api_key' => env('BREVO_API_KEY'),
+        'endpoint' => env('BREVO_API_ENDPOINT', 'https://api.brevo.com/v3/smtp/email'),
+    ],
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', env('MAIL_USERNAME')),
         'name' => env('MAIL_FROM_NAME', 'Colegio de Montalban'),

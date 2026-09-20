@@ -9,6 +9,7 @@ use App\Models\Student;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -238,6 +239,11 @@ class AuthOtpService
     private function deliver(AuthOtpChallenge $challenge, string $otp): void
     {
         try {
+            if ((string) config('mail.default') === 'brevo') {
+                $this->deliverViaBrevo($challenge, $otp);
+                return;
+            }
+
             Mail::to($challenge->email)->send(new AuthOtpMail(
                 $otp,
                 $challenge->purpose,
@@ -262,6 +268,34 @@ class AuthOtpService
                 503
             );
         }
+    }
+
+    private function deliverViaBrevo(AuthOtpChallenge $challenge, string $otp): void
+    {
+        $subject = $challenge->purpose === self::PURPOSE_REGISTRATION
+            ? 'Verify your CDM account'
+            : 'Your CDM login verification code';
+
+        Http::timeout(20)
+            ->withHeaders([
+                'accept' => 'application/json',
+                'api-key' => (string) config('mail.brevo.api_key'),
+                'content-type' => 'application/json',
+            ])
+            ->post((string) config('mail.brevo.endpoint'), [
+                'sender' => [
+                    'email' => (string) config('mail.from.address'),
+                    'name' => (string) config('mail.from.name'),
+                ],
+                'to' => [['email' => $challenge->email]],
+                'subject' => $subject,
+                'htmlContent' => view('emails.auth-otp', [
+                    'otp' => $otp,
+                    'purpose' => $challenge->purpose,
+                    'expiresMinutes' => $this->expiresMinutes(),
+                ])->render(),
+            ])
+            ->throw();
     }
 
     private function createRegisteredStudent(AuthOtpChallenge $challenge): Student
@@ -360,6 +394,17 @@ class AuthOtpService
 
     private function ensureMailDeliveryConfigured(): void
     {
+        if ((string) config('mail.default') === 'brevo') {
+            if (trim((string) config('mail.brevo.api_key')) === '') {
+                throw new OtpException(
+                    'Email verification is not configured. Please contact the system administrator.',
+                    503
+                );
+            }
+
+            return;
+        }
+
         if ((string) config('mail.default') !== 'smtp') {
             return;
         }
