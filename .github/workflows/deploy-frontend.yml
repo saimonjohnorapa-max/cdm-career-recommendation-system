@@ -37,6 +37,19 @@ jobs:
         env:
           VITE_API_URL: https://cdm-career-recommendation-system.onrender.com/api
 
+      - name: Install admin dependencies
+        working-directory: admin
+        run: npm ci
+
+      - name: Build admin portal
+        working-directory: admin
+        run: npm run build
+        env:
+          VITE_API_URL: https://cdm-career-recommendation-system.onrender.com/api
+
+      - name: Combine Pages artifacts
+        run: cp -R admin/dist frontend/dist/admin
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

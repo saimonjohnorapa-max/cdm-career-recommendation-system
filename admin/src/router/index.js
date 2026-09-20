@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 import { useAdminAuth } from '../stores/auth';
 import Login from '../pages/Login.vue';
 import Dashboard from '../pages/Dashboard.vue';
@@ -22,6 +22,6 @@ const routes = [
   { path: '/activity', name: 'Activity', component: ActivityLogs, meta: { auth: true, super: true } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ];
-const router = createRouter({ history: createWebHistory(), routes });
+const router = createRouter({ history: createWebHashHistory(), routes });
 router.beforeEach(async (to) => { const auth = useAdminAuth(); if (!auth.ready) await auth.initialize(); if (to.meta.auth && !auth.loggedIn) return '/login'; if (to.meta.guest && auth.loggedIn) return '/'; if (to.meta.super && !auth.isSuper) return '/'; });
 export default router;
