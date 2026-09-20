@@ -36,6 +36,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: https://cdm-career-recommendation-system.onrender.com/api
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Install admin dependencies
         working-directory: admin
@@ -46,6 +47,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: https://cdm-career-recommendation-system.onrender.com/api
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Combine Pages artifacts
         run: cp -R admin/dist frontend/dist/admin
