@@ -9,7 +9,7 @@ function setup(server={session:null},now=0,storage=new Map(),mobile=false){
   let tick, posts=0;
   const response=()=>({data:structuredClone({success:true,...server.session,server_now:new Date(now).toISOString()})});
   const api={get:async path=>{
-    if(path==='/exam/access')return{data:{allowed:server.allowed!==false,message:'Campus network required'}};
+    if(path==='/exam/access')return{data:{allowed:server.allowed!==false,message:'Desktop or laptop required'}};
     if(path==='/auth/profile')return{data:{student:{id:1}}};
     if(path==='/exam/session'){if(!server.session||server.session.exam_completed)throw{response:{status:404}};return response()}
     if(path==='/exam/result'){if(!server.result)throw{response:{status:404}};return{data:server.result}}
@@ -38,7 +38,7 @@ test('cancel submission leaves session active',async()=>{const e=setup();await e
 
 test('rules acknowledgment is required before starting',async()=>{const e=setup();await e.loadExam();e.rulesAccepted.value=false;await e.startExam();assert.equal(e.server.session,null)});
 test('mobile never loads or starts exam content',async()=>{const e=setup({session:null},0,new Map(),true);await e.loadExam();await e.startExam();assert.ok(e.accessDenied.value);assert.equal(e.server.session,null);assert.equal(e.currentQuestion.value,undefined)});
-test('off-site desktop never loads or starts exam content',async()=>{const e=setup({session:null,allowed:false});await e.loadExam();await e.startExam();assert.ok(e.accessDenied.value);assert.equal(e.server.session,null);assert.equal(e.currentQuestion.value,undefined)});
+test('server access denial never loads or starts exam content',async()=>{const e=setup({session:null,allowed:false});await e.loadExam();await e.startExam();assert.ok(e.accessDenied.value);assert.equal(e.server.session,null);assert.equal(e.currentQuestion.value,undefined)});
 test('switching away locks immediately and submits only server-saved answers',async()=>{const e=setup();await e.loadExam();await e.startExam();e.answers.value[1]='B';await e.syncProgress();e.answers.value[2]='D';e.handleBlur();assert.equal(e.examTerminated.value,true);await e.sendTermination();assert.equal(e.examCompleted.value,true);assert.equal(e.server.session.answers[1],'B');assert.equal(e.server.session.answers[2],null);await e.submitExam();assert.equal(e.posts(),0)});
 test('page exit terminates only an active attempt',async()=>{const e=setup();e.handlePageHide();assert.equal(e.examTerminated.value,false);await e.loadExam();await e.startExam();e.handlePageHide();await e.sendTermination();assert.equal(e.server.session.termination_reason,'page_left')});
 test('offline termination survives reload and must finish before recovery',async()=>{const server={session:null},storage=new Map();const a=setup(server,0,storage);await a.loadExam();await a.startExam();a.api.post=async()=>{throw Error('offline')};a.handleBlur();await a.sendTermination();assert.equal(a.examCompleted.value,false);assert.ok(storage.get('cdm-exam-termination:1'));const b=setup(server,1000,storage);await b.loadExam();assert.equal(b.examTerminated.value,true);assert.equal(b.examCompleted.value,true);assert.equal(server.session.exam_completed,true);assert.equal(storage.has('cdm-exam-termination:1'),false)});

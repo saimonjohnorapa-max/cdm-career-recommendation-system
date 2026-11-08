@@ -100,18 +100,22 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         return $student;
     }
 
-    public function test_examination_requires_campus_network_and_cannot_trust_spoofed_forwarding(): void
+    public function test_desktop_can_take_exam_from_any_network_without_campus_configuration(): void
     {
         $this->examStudent();
-        config(['exam.allowed_networks' => []]);
-        $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', false);
-        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertForbidden();
-        config(['exam.allowed_networks' => ['203.0.113.0/24']]);
-        $this->withHeader('X-Forwarded-For', '203.0.113.10')->getJson('/api/exam/questions')->assertForbidden();
-        $this->assertSame(0, \App\Models\ExamSession::count());
-        config(['exam.trusted_proxies' => ['127.0.0.1', '::1']]);
-        $this->getJson('/api/exam/questions')->assertOk();
-        $this->withHeader('X-Forwarded-For', '203.0.113.10, 198.51.100.20')->getJson('/api/exam/questions')->assertForbidden();
+        foreach (['198.51.100.20', '2001:db8::10'] as $ip) {
+            $this->withServerVariables(['REMOTE_ADDR' => $ip]);
+            $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', true)->assertJsonPath('message', null);
+            $this->getJson('/api/exam/questions')->assertOk();
+        }
+        $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
+        // Moving between networks must not prevent saving or submitting an active exam.
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10']);
+        $this->getJson('/api/exam/session')->assertOk()->assertJsonPath('session_id', $start['session_id']);
+        $body = ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $start['answers']];
+        $saved = $this->putJson('/api/exam/session', $body)->assertOk()->json();
+        $body['revision'] = $saved['revision'];
+        $this->postJson('/api/exam/submit', $body)->assertOk()->assertJsonPath('exam_completed', true);
     }
 
     public function test_mobile_and_tablets_cannot_access_exam_but_can_view_results(): void
@@ -147,14 +151,12 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $firstId = $start['questions'][0]['id'];
         $answers[$firstId] = ExamQuestion::findOrFail($firstId)->correct_answer;
         $this->putJson('/api/exam/session', ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $answers])->assertOk();
-        // Finalization must still work if the client moves off-site or is detected as mobile.
-        config(['exam.allowed_networks' => []]);
+        // Finalization must still work if the client is detected as mobile.
         $this->withHeader('User-Agent', 'iPhone');
         $body = ['session_id' => $start['session_id'], 'reason' => 'tab_hidden'];
         $this->postJson('/api/exam/session/terminate', $body)->assertOk()->assertJsonPath('exam_completed', true)->assertJsonPath('termination_reason', 'tab_hidden');
         $this->postJson('/api/exam/session/terminate', $body)->assertOk();
         $this->getJson('/api/exam/result')->assertOk()->assertJsonPath('termination_reason', 'tab_hidden')->assertJsonPath('can_retake', false);
-        config(['exam.allowed_networks' => ['127.0.0.1', '::1']]);
         $this->withHeader('User-Agent', 'Desktop');
         $this->getJson('/api/exam/session')->assertNotFound();
         $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertConflict();
@@ -209,7 +211,6 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         parent::setUp();
         config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array']);
         DB::purge('sqlite');
-        config(['exam.allowed_networks' => ['127.0.0.1', '::1'], 'exam.trusted_proxies' => []]);
         // All migrations execute against an isolated, in-memory database only.
         Artisan::call('migrate', ['--force' => true]);
         // A fresh database has samples only; build a complete bank as an isolated test fixture.

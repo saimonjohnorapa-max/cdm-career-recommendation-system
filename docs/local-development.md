@@ -52,7 +52,7 @@ The portal logos and favicons use Vite's deployment base, so they load from the 
 
 ## Examination configuration
 
-See [examination-policy.md](examination-policy.md) for the migration and campus network settings. For isolated local testing only, `EXAM_ALLOWED_NETWORKS=127.0.0.1,::1` permits loopback access. An empty list blocks exam-taking while leaving results accessible.
+See [examination-policy.md](examination-policy.md) for the migration and examination rules. Signed-in active students can take the exam on a desktop or laptop from any network; no campus IP configuration is required.
 
 ## Verification
 

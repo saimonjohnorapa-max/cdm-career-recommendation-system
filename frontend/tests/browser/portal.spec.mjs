@@ -67,7 +67,7 @@ test('mobile examination is blocked while published results remain viewable',asy
     return fulfill(route,{},404);
   });
   await page.goto('/cdm-career-recommendation-system/#/exam');
-  await expect(page.getByRole('heading',{name:'On-site examination only',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Desktop or laptop required',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Begin Examination',exact:true})).toHaveCount(0);
   expect(examContentRequests).toBe(0);
   await page.getByRole('link',{name:'View Exam Results',exact:true}).click();

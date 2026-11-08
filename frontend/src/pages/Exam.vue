@@ -15,7 +15,7 @@
 
     <!-- Instructions -->
     <div v-if="accessDenied" role="alert" class="school-card p-8">
-      <h2 class="text-2xl font-bold text-gray-900 mb-3">On-site examination only</h2>
+      <h2 class="text-2xl font-bold text-gray-900 mb-3">Desktop or laptop required</h2>
       <p class="text-gray-700 mb-4">{{ accessDenied }}</p>
       <router-link to="/results" class="underline font-semibold">View Exam Results</router-link>
     </div>
@@ -74,7 +74,7 @@
       <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-5">
         <h3 class="font-bold text-red-900 mb-3">Strict Examination Rules</h3>
         <ol class="list-decimal pl-5 space-y-2 text-sm text-red-900">
-          <li>Take the exam only on a desktop or laptop at the designated campus examination site and network. Phones and tablets are for viewing portal information and results only.</li>
+          <li>Take the exam on a desktop or laptop with a stable internet connection. Phones and tablets are for viewing portal information and results only.</li>
           <li>Keep this tab active. Opening or switching to another tab or window, switching applications, minimizing the browser, refreshing, closing, or leaving this page ends this attempt immediately. Losing browser focus also ends the attempt.</li>
           <li>An ended attempt cannot be resumed. The server submits the answers already saved; unanswered questions receive zero marks. Ending an attempt counts toward your attempt limit.</li>
           <li>No notes, unauthorized websites, AI tools, communication, or assistance from others. Follow the proctor's instructions and report technical problems immediately.</li>
@@ -397,12 +397,12 @@ const loadExam = async () => {
       return;
     }
     if (isMobileExamDevice()) {
-      accessDenied.value = 'Mobile phones and tablets cannot take the entrance examination. Please use a desktop or laptop at the designated campus examination site. You can view your results on mobile.';
+      accessDenied.value = 'Mobile phones and tablets cannot take the entrance examination. Please use a desktop or laptop with an internet connection. You can view your results on mobile.';
       return;
     }
     const access = await api.get('/exam/access');
     if (!access.data.allowed) {
-      accessDenied.value = access.data.message || 'Please use a desktop or laptop on the campus examination network.';
+      accessDenied.value = access.data.message || 'Please use a desktop or laptop with an internet connection.';
       return;
     }
     progressKey = `cdm-exam-progress:v1:${studentId}`;
