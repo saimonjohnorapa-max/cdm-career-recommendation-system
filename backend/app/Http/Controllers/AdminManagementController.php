@@ -84,6 +84,35 @@ class AdminManagementController extends Controller
         return response()->json(['success' => true, 'student' => $student->fresh(), 'message' => 'Student status updated.']);
     }
 
+    public function destroyStudent(Request $request, Student $student)
+    {
+        DB::transaction(function () use ($request, $student) {
+            // Match the examination's student lock so deletion and exam writes serialize.
+            $student = Student::whereKey($student->id)->lockForUpdate()->firstOrFail();
+            $snapshot = ['name' => $student->full_name, 'email' => $student->email,
+                'student_number' => $student->student_number, 'exam_results' => $student->examResults()->count()];
+            $picture = $student->profile_picture;
+
+            $student->tokens()->delete();
+            DB::table('student_password_resets')->where('email', $student->email)->delete();
+            // Registration challenges can reference an email without a student foreign key.
+            DB::table('auth_otp_challenges')->where('email', $student->email)->delete();
+            $this->logRaw($request, 'student.deleted', Student::class, $student->id, $snapshot);
+            // Foreign keys remove exam sessions/answers/results, recommendations,
+            // notifications and trusted devices. Historical student log IDs become null.
+            $student->delete();
+
+            if (is_string($picture) && preg_match('/\Aprofile_pictures\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)\z/i', $picture)) {
+                DB::afterCommit(function () use ($picture) {
+                    try { Storage::disk('public')->delete($picture); }
+                    catch (\Throwable $exception) { report($exception); }
+                });
+            }
+        });
+
+        return response()->json(['success' => true, 'message' => 'Student account and linked examination records removed permanently.']);
+    }
+
     public function results(Request $request)
     {
         $query = ExamResult::with(['student:id,first_name,last_name,email,student_number', 'student.recommendation.course']);

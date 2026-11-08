@@ -55,9 +55,6 @@ Route::get('/courses/{id}', [CourseController::class, 'getCourseDetails']);
 Route::post('/assistant/respond', [VoiceAssistantController::class, 'respond'])->middleware('throttle:30,1');
 Route::get('/assistant/knowledge', [VoiceAssistantController::class, 'knowledge'])->middleware('throttle:60,1');
 
-// Exam Questions (public but ideally protected)
-Route::get('/exam/questions', [ExamController::class, 'getQuestions'])->middleware(['auth:sanctum', 'student.active']);
-
 // Protected routes
 Route::middleware(['auth:sanctum', 'student.active'])->group(function () {
     // Auth
@@ -73,10 +70,16 @@ Route::middleware(['auth:sanctum', 'student.active'])->group(function () {
     Route::put('/student/profile', [StudentController::class, 'updateProfile']);
 
     // Exam
-    Route::get('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'current']);
-    Route::post('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'start']);
-    Route::put('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'save']);
-    Route::post('/exam/submit', [\App\Http\Controllers\ExamSessionController::class, 'submit']);
+    Route::get('/exam/access', [\App\Http\Controllers\ExamSessionController::class, 'access']);
+    // Finalization remains possible after network/device changes, but never releases an active exam.
+    Route::post('/exam/session/terminate', [\App\Http\Controllers\ExamSessionController::class, 'terminate']);
+    Route::middleware(\App\Http\Middleware\EnsureExamAccess::class)->group(function () {
+        Route::get('/exam/questions', [ExamController::class, 'getQuestions']);
+        Route::get('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'current']);
+        Route::post('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'start']);
+        Route::put('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'save']);
+        Route::post('/exam/submit', [\App\Http\Controllers\ExamSessionController::class, 'submit']);
+    });
     Route::get('/exam/result', [ExamController::class, 'getExamResult']);
 
     // Results
@@ -97,6 +100,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
 
     Route::middleware('admin:admissions_staff')->group(function () {
         Route::patch('/students/{student}/status', [AdminManagementController::class, 'updateStudentStatus']);
+        Route::delete('/students/{student}', [AdminManagementController::class, 'destroyStudent']);
         Route::post('/courses', [AdminManagementController::class, 'storeCourse']);
         Route::put('/courses/{course}', [AdminManagementController::class, 'updateCourse']);
         Route::delete('/courses/{course}', [AdminManagementController::class, 'destroyCourse']);

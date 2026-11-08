@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Admin;
 use App\Models\AdminActivityLog;
-use Google\Auth\AccessToken as GoogleAccessToken;
+use App\Exceptions\GoogleVerificationUnavailable;
+use App\Services\GoogleTokenVerifier;
 use Illuminate\Http\Request;
 
 class AdminAuthController extends Controller
@@ -12,19 +13,11 @@ class AdminAuthController extends Controller
     public function googleLogin(Request $request)
     {
         $validated = $request->validate(['google_token' => 'required|string']);
-        $clientId = (string) config('services.google.client_id');
-        if ($clientId === '' || $clientId === 'your_google_client_id') {
-            return response()->json(['success' => false, 'message' => 'Google login is not configured.'], 503);
-        }
-
         try {
-            $claims = (new GoogleAccessToken())->verify($validated['google_token'], [
-                'audience' => $clientId,
-                'throwException' => false,
-            ]);
-        } catch (\Throwable $exception) {
+            $claims = app(GoogleTokenVerifier::class)->verify($validated['google_token']);
+        } catch (GoogleVerificationUnavailable $exception) {
             report($exception);
-            $claims = null;
+            return response()->json(['success' => false, 'message' => $exception->getMessage()], 503);
         }
 
         $email = strtolower(trim((string) ($claims['email'] ?? '')));

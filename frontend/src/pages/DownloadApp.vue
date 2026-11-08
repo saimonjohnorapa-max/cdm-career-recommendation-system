@@ -16,7 +16,7 @@
       <div class="phone" aria-label="Mobile app preview">
         <div class="phone-speaker"></div>
         <div class="phone-screen">
-          <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban seal">
+          <img :src="schoolSeal" alt="Colegio de Montalban seal">
           <small>CAREER RECOMMENDATION SYSTEM</small>
           <h2>Welcome, student</h2>
           <div class="mobile-card"><span>Entrance Assessment</span><strong>Continue your journey →</strong></div>
@@ -33,6 +33,7 @@
 </template>
 
 <script setup>
+const schoolSeal = `${import.meta.env.BASE_URL}The_Colegio_de_Montalban_Seal.png`;
 import { computed, ref } from 'vue';
 import { useInstallApp } from '../utils/installApp';
 

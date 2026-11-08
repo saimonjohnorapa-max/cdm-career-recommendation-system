@@ -7,5 +7,5 @@ class ExamSession extends Model
     protected $keyType = 'string';
     protected $guarded = [];
     protected $hidden = ['questions'];
-    protected $casts = ['questions' => 'array', 'answers' => 'array', 'started_at' => 'datetime', 'deadline' => 'datetime'];
+    protected $casts = ['questions' => 'array', 'answers' => 'array', 'started_at' => 'datetime', 'deadline' => 'datetime', 'terminated_at' => 'datetime'];
 }

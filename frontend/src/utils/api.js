@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isMobileExamDevice } from './exam-device.js';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 export const API_BASE = API_URL.replace(/\/api$/, '');
@@ -12,6 +13,7 @@ const api = axios.create({
 
 // Add token to requests
 api.interceptors.request.use((config) => {
+  if (config.url?.startsWith('/exam/')) config.headers['X-Exam-Device'] = isMobileExamDevice() ? 'mobile' : 'desktop';
   const token = localStorage.getItem('auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

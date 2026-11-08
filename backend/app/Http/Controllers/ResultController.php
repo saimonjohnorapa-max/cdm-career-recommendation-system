@@ -61,7 +61,7 @@ class ResultController extends Controller
                     $top = $result['ranked_programs'][0];
                     Recommendation::updateOrCreate(['student_id' => $student->id], [
                         'course_id' => $top['course_id'], 'confidence_score' => $top['score'],
-                        'reasoning' => $result['ai_explanations'][$top['course_code']]['explanation'] ?? 'Calculated program alignment; AI explanation is unavailable.',
+                        'reasoning' => $result['ai_explanations'][$top['course_code']]['explanation'] ?? $top['match_basis']['summary'],
                         'alternative_recommendations' => array_slice($result['ranked_programs'], 1, 3),
                     ]);
                     $student->update(['recommended_program' => $top['course_code']]);

@@ -9,6 +9,10 @@
 7. The server requests structured JSON and checks completion, program codes, duplicates, missing programs, and explanation fields. The AI is instructed not to guarantee readiness, invent facts, or treat zero performance as a strength. Text is rendered through escaped Vue interpolation. Structural validation cannot guarantee every generated sentence is factually correct.
 8. The complete payload and interests are saved on the exam attempt. An evidence/catalog/model/version fingerprint reuses an unchanged successful result. Changed inputs invalidate it. Failed AI requests leave calculated matches available and can be retried. The generation endpoint is authenticated and limited to six requests per minute.
 
+Each program also includes a calculated `match_basis`: the points contributed by the exam and interests, normalized subject weights, saved category evidence and ratings, and each category's contribution to the final score. The highest match names the largest contributions and compares its lead with the next-ranked program, including the largest category differences that favor it. Ties and a single rankable program are explicit. These reasons remain available when Gemini is unavailable; they do not depend on generated prose. Category contributions reflect both performance and program weights, so the largest contributor is not automatically the student's strongest subject. Displayed values are rounded.
+
+Gemini receives this same basis and is instructed to explain the highest ranking through specific evidence and approved subjects/careers, distinguish interest from demonstrated ability, and identify a tradeoff and next step. Matcher version 2 invalidates older cached explanations without changing the scoring formula or resetting exams. Registrar-pass responses continue to remove exact scores, category evidence, generated prose, and the new match basis.
+
 ## Interpretation and edge cases
 
 - Scores are alignment indices out of 100, not AI confidence or probabilities of graduation, employment, or admission.

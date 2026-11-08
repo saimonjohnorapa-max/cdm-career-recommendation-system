@@ -15,6 +15,163 @@ use Laravel\Sanctum\Sanctum;
 class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
 {
     private array $sessions = [];
+    public function test_student_removal_cleans_linked_records_and_retains_audit_history(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $student = $this->examStudent('remove-student');
+        $student->update(['profile_picture' => 'profile_pictures/student-photo.png']);
+        \Illuminate\Support\Facades\Storage::disk('public')->put($student->profile_picture, 'test image');
+        $session = app(\App\Services\ExamSessionService::class)->start($student);
+        app(\App\Services\ExamSessionService::class)->withLockedSession($student, $session->id,
+            fn ($session) => app(\App\Services\ExamSessionService::class)->finish($session));
+        $student->createToken('student-device');
+        $student->trustedDevices()->create(['token_hash' => hash('sha256', 'test-device'), 'expires_at' => now()->addDay()]);
+        \App\Models\Recommendation::create(['student_id' => $student->id, 'course_id' => Course::firstOrFail()->id, 'confidence_score' => 80, 'reasoning' => 'Test recommendation']);
+        DB::table('portal_notifications')->insert(['student_id' => $student->id, 'message' => 'Test notification']);
+        DB::table('student_password_resets')->insert(['email' => $student->email, 'token_hash' => 'test-hash', 'expires_at' => now()->addHour()]);
+        DB::table('auth_otp_challenges')->insert(['id' => (string) \Illuminate\Support\Str::uuid(), 'student_id' => null,
+            'email' => $student->email, 'purpose' => 'registration', 'otp_hash' => 'test-hash', 'attempts_remaining' => 5,
+            'resend_count' => 0, 'expires_at' => now()->addHour(), 'last_sent_at' => now()]);
+        $studentLog = \App\Models\StudentActivityLog::create(['student_id' => $student->id, 'action' => 'login']);
+        $other = Student::create(['first_name' => 'Keep', 'last_name' => 'Student', 'email' => 'keep@example.com', 'student_number' => 'KEEP', 'admission_year' => 'TEST', 'account_status' => 'active']);
+        $other->createToken('other-device');
+        $admin = \App\Models\Admin::create(['name' => 'Super Admin', 'email' => 'remove-admin@example.com', 'role' => 'super_admin', 'status' => 'active']);
+        Sanctum::actingAs($admin);
+
+        $this->deleteJson('/api/admin/students/'.$student->id)->assertOk()->assertJsonPath('success', true);
+        $this->assertDatabaseMissing('students', ['id' => $student->id]);
+        foreach (['exam_sessions', 'exam_results', 'recommendations', 'portal_notifications', 'trusted_devices'] as $table) {
+            $this->assertDatabaseMissing($table, ['student_id' => $student->id]);
+        }
+        $this->assertDatabaseCount('exam_answers', 0);
+        $this->assertDatabaseCount('exam_session_questions', 0);
+        $this->assertDatabaseMissing('personal_access_tokens', ['tokenable_type' => Student::class, 'tokenable_id' => $student->id]);
+        $this->assertDatabaseMissing('auth_otp_challenges', ['email' => $student->email]);
+        $this->assertDatabaseMissing('student_password_resets', ['email' => $student->email]);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('profile_pictures/student-photo.png');
+        $this->assertNull($studentLog->fresh()->student_id);
+        $log = \App\Models\AdminActivityLog::where('action', 'student.deleted')->sole();
+        $this->assertSame($admin->id, $log->admin_id);
+        $this->assertSame($student->id, $log->subject_id);
+        $this->assertSame('remove-student', $log->details['student_number']);
+        $this->assertSame(1, $log->details['exam_results']);
+        $this->assertDatabaseHas('students', ['id' => $other->id]);
+        $this->assertSame(1, $other->tokens()->count());
+        $this->assertGreaterThan(0, ExamQuestion::count());
+        $this->deleteJson('/api/admin/students/'.$student->id)->assertNotFound();
+    }
+
+    public function test_student_removal_requires_an_active_admin_with_student_management_permission(): void
+    {
+        $student = $this->examStudent('protected-student');
+        $this->deleteJson('/api/admin/students/'.$student->id)->assertForbidden();
+        foreach (['viewer', 'exam_manager'] as $role) {
+            $admin = \App\Models\Admin::create(['name' => $role, 'email' => $role.'-remove@example.com', 'role' => $role, 'status' => 'active']);
+            Sanctum::actingAs($admin);
+            $this->deleteJson('/api/admin/students/'.$student->id)->assertForbidden();
+        }
+        $admin->update(['role' => 'admissions_staff', 'status' => 'suspended']);
+        $this->deleteJson('/api/admin/students/'.$student->id)->assertForbidden();
+        $this->assertDatabaseHas('students', ['id' => $student->id]);
+        $admin->update(['status' => 'active']);
+        $this->deleteJson('/api/admin/students/'.$student->id)->assertOk();
+        $this->assertDatabaseMissing('students', ['id' => $student->id]);
+    }
+
+    public function test_student_removal_rolls_back_when_audit_record_cannot_be_saved(): void
+    {
+        $student = $this->examStudent('rollback-student');
+        $student->createToken('keep-on-failure');
+        DB::table('student_password_resets')->insert(['email' => $student->email, 'token_hash' => 'test-hash', 'expires_at' => now()->addHour()]);
+        $admin = \App\Models\Admin::create(['name' => 'Admissions', 'email' => 'rollback-admin@example.com', 'role' => 'admissions_staff', 'status' => 'active']);
+        Sanctum::actingAs($admin);
+        DB::statement("CREATE TRIGGER reject_delete_audit BEFORE INSERT ON admin_activity_logs WHEN NEW.action = 'student.deleted' BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END");
+        $this->deleteJson('/api/admin/students/'.$student->id)->assertStatus(500);
+        $this->assertDatabaseHas('students', ['id' => $student->id]);
+        $this->assertSame(1, $student->tokens()->count());
+        $this->assertDatabaseHas('student_password_resets', ['email' => $student->email]);
+        $this->assertDatabaseMissing('admin_activity_logs', ['action' => 'student.deleted']);
+    }
+
+    private function examStudent(string $name = 'policy'): Student
+    {
+        $student = Student::create(['first_name' => 'Policy', 'last_name' => 'Test', 'email' => $name.'@example.com', 'student_number' => $name, 'admission_year' => '2026-2027', 'account_status' => 'active']);
+        Sanctum::actingAs($student);
+        return $student;
+    }
+
+    public function test_examination_requires_campus_network_and_cannot_trust_spoofed_forwarding(): void
+    {
+        $this->examStudent();
+        config(['exam.allowed_networks' => []]);
+        $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', false);
+        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertForbidden();
+        config(['exam.allowed_networks' => ['203.0.113.0/24']]);
+        $this->withHeader('X-Forwarded-For', '203.0.113.10')->getJson('/api/exam/questions')->assertForbidden();
+        $this->assertSame(0, \App\Models\ExamSession::count());
+        config(['exam.trusted_proxies' => ['127.0.0.1', '::1']]);
+        $this->getJson('/api/exam/questions')->assertOk();
+        $this->withHeader('X-Forwarded-For', '203.0.113.10, 198.51.100.20')->getJson('/api/exam/questions')->assertForbidden();
+    }
+
+    public function test_mobile_and_tablets_cannot_access_exam_but_can_view_results(): void
+    {
+        $this->examStudent();
+        foreach (['Mozilla/5.0 (iPhone) Mobile', 'Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPad)'] as $agent) {
+            $this->withHeader('User-Agent', $agent);
+            $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', false);
+            $this->getJson('/api/exam/questions')->assertForbidden();
+            $this->getJson('/api/exam/session')->assertForbidden();
+            $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertForbidden();
+            $this->putJson('/api/exam/session', [])->assertForbidden();
+            $this->postJson('/api/exam/submit', [])->assertForbidden();
+            $this->getJson('/api/exam/result')->assertNotFound();
+        }
+        $this->withHeaders(['User-Agent' => 'Mozilla/5.0 (Macintosh)', 'X-Exam-Device' => 'mobile'])->getJson('/api/exam/questions')->assertForbidden();
+        $this->assertSame(0, \App\Models\ExamSession::count());
+    }
+
+    public function test_exam_requires_explicit_rules_acceptance(): void
+    {
+        $this->examStudent();
+        $this->postJson('/api/exam/session')->assertUnprocessable()->assertJsonValidationErrors('rules_accepted');
+        $this->postJson('/api/exam/session', ['rules_accepted' => false])->assertUnprocessable();
+        $this->assertSame(0, \App\Models\ExamSession::count());
+    }
+
+    public function test_termination_finalizes_saved_answers_once_and_prevents_resuming(): void
+    {
+        $student = $this->examStudent();
+        $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
+        $answers = $start['answers'];
+        $firstId = $start['questions'][0]['id'];
+        $answers[$firstId] = ExamQuestion::findOrFail($firstId)->correct_answer;
+        $this->putJson('/api/exam/session', ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $answers])->assertOk();
+        // Finalization must still work if the client moves off-site or is detected as mobile.
+        config(['exam.allowed_networks' => []]);
+        $this->withHeader('User-Agent', 'iPhone');
+        $body = ['session_id' => $start['session_id'], 'reason' => 'tab_hidden'];
+        $this->postJson('/api/exam/session/terminate', $body)->assertOk()->assertJsonPath('exam_completed', true)->assertJsonPath('termination_reason', 'tab_hidden');
+        $this->postJson('/api/exam/session/terminate', $body)->assertOk();
+        $this->getJson('/api/exam/result')->assertOk()->assertJsonPath('termination_reason', 'tab_hidden')->assertJsonPath('can_retake', false);
+        config(['exam.allowed_networks' => ['127.0.0.1', '::1']]);
+        $this->withHeader('User-Agent', 'Desktop');
+        $this->getJson('/api/exam/session')->assertNotFound();
+        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertConflict();
+        $this->postJson('/api/exam/submit', ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => array_fill_keys(array_keys($answers), 'D')])->assertOk();
+        $this->assertSame(1, ExamResult::where('student_id', $student->id)->count());
+        $this->assertSame(1, (int) ExamResult::firstOrFail()->total_score);
+    }
+
+    public function test_another_student_cannot_terminate_an_exam(): void
+    {
+        $this->examStudent('owner');
+        $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
+        $this->examStudent('other');
+        $this->postJson('/api/exam/session/terminate', ['session_id' => $start['session_id'], 'reason' => 'page_left'])->assertNotFound();
+        $this->assertSame(0, ExamResult::count());
+    }
+
     public function test_admin_guidance_summary_counts_latest_attempt_and_ties(): void
     {
         $student = Student::create(['first_name' => 'Summary', 'last_name' => 'Test', 'email' => 'summary@example.com', 'student_number' => 'SUMMARY', 'admission_year' => '2026-2027', 'account_status' => 'active']);
@@ -31,7 +188,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
     {
         $key = auth()->id().':'.($data['attempt_number'] ?? 1);
         if (!isset($this->sessions[$key])) {
-            $start = $this->postJson('/api/exam/session');
+            $start = $this->postJson('/api/exam/session', ['rules_accepted' => true]);
             if ($start->status() !== 200) return $start;
             $this->sessions[$key] = $start->json('session_id');
         }
@@ -52,6 +209,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         parent::setUp();
         config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array']);
         DB::purge('sqlite');
+        config(['exam.allowed_networks' => ['127.0.0.1', '::1'], 'exam.trusted_proxies' => []]);
         // All migrations execute against an isolated, in-memory database only.
         Artisan::call('migrate', ['--force' => true]);
         // A fresh database has samples only; build a complete bank as an isolated test fixture.
@@ -78,7 +236,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         for ($i = 0; $i < 5; $i++) {
             $student = Student::create(['first_name' => 'Shuffle', 'last_name' => 'Test', 'email' => "shuffle{$i}@example.com", 'student_number' => "SHUFFLE-{$i}", 'admission_year' => '2026-2027', 'account_status' => 'active']);
             Sanctum::actingAs($student);
-            $start = $this->postJson('/api/exam/session')->assertOk()->json();
+            $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
             $orders[] = array_column($start['questions'], 'id');
             $topics = array_column($start['questions'], 'category');
             $topicOrders[] = array_values(array_unique($topics));
@@ -86,19 +244,19 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
             $this->assertCount(5, $topicOrders[$i]);
             foreach (array_chunk($topics, 20) as $chunk) $this->assertCount(1, array_unique($chunk));
             $this->getJson('/api/exam/session')->assertJsonPath('questions', $start['questions']);
-            $this->postJson('/api/exam/session')->assertJsonPath('questions', $start['questions']);
+            $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertJsonPath('questions', $start['questions']);
         }
         $this->assertGreaterThan(1, count(array_unique(array_map('json_encode', $orders))));
         $this->assertGreaterThan(1, count(array_unique(array_map('json_encode', $topicOrders))));
         $this->postJson('/api/exam/submit', ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $start['answers']])->assertOk();
         ExamResult::where('student_id', $student->id)->update(['official_status' => 'published', 'official_score' => 0, 'published_at' => now()]);
-        $retake = $this->postJson('/api/exam/session')->assertOk()->assertJsonPath('attempt_number', 2)->json();
+        $retake = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->assertJsonPath('attempt_number', 2)->json();
         $this->assertNotSame(array_column($start['questions'], 'id'), array_column($retake['questions'], 'id'));
         $answers = ExamQuestion::whereIn('id', array_column($retake['questions'], 'id'))->pluck('correct_answer', 'id')->all();
         ExamQuestion::query()->update(['correct_answer' => 'A']);
         $this->postJson('/api/exam/submit', ['session_id' => $retake['session_id'], 'revision' => 0, 'answers' => $answers])->assertOk();
         $this->assertSame(100, (int) ExamResult::where('student_id', $student->id)->latest('id')->first()->total_score);
-        $this->postJson('/api/exam/session')->assertStatus(409);
+        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertStatus(409);
     }
 
     public function test_full_bank_is_restored_and_stale_five_question_submissions_are_rejected(): void
@@ -187,7 +345,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $second->update(['official_status' => 'published', 'official_score' => 50]);
         $this->getJson('/api/exam/result')->assertJsonPath('official_result.outcome', 'FAILED')->assertJsonPath('can_retake', false);
         $this->submitAnswers($submission + ['attempt_number' => 2])->assertOk(); // Idempotent replay of the same session.
-        $this->postJson('/api/exam/session')->assertStatus(409);
+        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertStatus(409);
         $this->assertSame(2, ExamResult::where('student_id', $student->id)->count());
     }
 
@@ -270,8 +428,8 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
     {
         $student = Student::create(['first_name' => 'Session', 'last_name' => 'Test', 'email' => 'session@example.com', 'student_number' => 'SESSION-1', 'admission_year' => '2026-2027', 'account_status' => 'active']);
         Sanctum::actingAs($student);
-        $start = $this->postJson('/api/exam/session')->assertOk()->assertJsonMissingPath('questions.0.correct_answer')->json();
-        $this->postJson('/api/exam/session')->assertJsonPath('session_id', $start['session_id'])->assertJsonPath('deadline', $start['deadline']);
+        $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->assertJsonMissingPath('questions.0.correct_answer')->json();
+        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertJsonPath('session_id', $start['session_id'])->assertJsonPath('deadline', $start['deadline']);
         $answers = ExamQuestion::whereIn('id', array_column($start['questions'], 'id'))->pluck('correct_answer', 'id')->all();
         $this->putJson('/api/exam/session', ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $answers, 'position' => 12])->assertOk()->assertJsonPath('revision', 1);
         $this->putJson('/api/exam/session', ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $answers])->assertStatus(409);
@@ -292,7 +450,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $first = Student::create(['first_name' => 'One', 'last_name' => 'Test', 'email' => 'one@example.com', 'student_number' => 'ONE', 'admission_year' => '2026-2027', 'account_status' => 'active']);
         $second = Student::create(['first_name' => 'Two', 'last_name' => 'Test', 'email' => 'two@example.com', 'student_number' => 'TWO', 'admission_year' => '2026-2027', 'account_status' => 'active']);
         Sanctum::actingAs($first);
-        $session = $this->postJson('/api/exam/session')->assertOk()->json();
+        $session = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
         Sanctum::actingAs($second);
         $this->getJson('/api/exam/session')->assertNotFound();
         $this->postJson('/api/exam/submit', ['session_id' => $session['session_id'], 'revision' => 0, 'answers' => $session['answers']])->assertNotFound();
@@ -334,13 +492,43 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $this->getJson('/api/student/status')->assertJsonPath('status', 'RETAKE')->assertJsonCount(2, 'notifications');
     }
 
+    public function test_match_reasons_remain_available_and_are_saved_when_ai_is_unavailable(): void
+    {
+        $student = $this->examStudent('match-reason');
+        $scores = array_fill_keys(\App\Services\ProgramMatcher::INTEREST_CATEGORIES, 1);
+        $scores['Digital Literacy'] = 4;
+        $scores['Logical Reasoning'] = 3;
+        $exam = ExamResult::create(['student_id' => $student->id, 'total_score' => 50, 'percentage' => 50, 'time_spent' => 50, 'exam_date' => now(), 'is_passed' => false,
+            'category_scores' => $scores, 'category_maximums' => array_fill_keys(array_keys($scores), 4)]);
+        Sanctum::actingAs($student);
+        $preview = $this->getJson('/api/results/recommendation')->assertOk()->json('recommendation.ranked_programs.0');
+        $this->assertNotEmpty($preview['match_basis']['summary']);
+        $this->assertNull($preview['match_basis']['interest_points']);
+        config(['services.gemini.api_key' => 'fake-key', 'services.gemini.model' => 'test-model']);
+        Http::fake(['*' => Http::response([], 503)]);
+        $interests = array_fill_keys(array_keys($scores), 3);
+        $interests['Digital Literacy'] = 5;
+        $response = $this->postJson('/api/results/recommendation', ['interests' => $interests])->assertOk()->assertJsonPath('recommendation.ai_status', 'unavailable');
+        $top = $response->json('recommendation.ranked_programs.0');
+        $this->assertSame('BSIT', $top['course_code']);
+        $this->assertGreaterThan(0, $top['match_basis']['comparison']['score_gap']);
+        $this->assertSame($top['match_basis']['summary'], \App\Models\Recommendation::where('student_id', $student->id)->sole()->reasoning);
+        $this->assertSame($top['match_basis'], $exam->fresh()->recommendation_payload['ranked_programs'][0]['match_basis']);
+        $this->getJson('/api/results/recommendation')->assertOk()->assertJsonPath('recommendation.ranked_programs.0.match_basis', $top['match_basis']);
+    }
+
     public function test_override_guidance_does_not_disclose_original_scores(): void
     {
         $student = Student::create(['first_name' => 'Private', 'last_name' => 'Test', 'email' => 'private@example.com', 'student_number' => 'PRIVATE', 'admission_year' => '2026-2027', 'account_status' => 'active']);
         $scores = array_fill_keys(\App\Services\ProgramMatcher::INTEREST_CATEGORIES, 10);
         ExamResult::create(['student_id' => $student->id, 'total_score' => 50, 'percentage' => 50, 'time_spent' => 50, 'exam_date' => now(), 'is_passed' => false, 'registrar_pass' => true, 'category_scores' => $scores, 'category_maximums' => array_fill_keys(array_keys($scores), 20)]);
         Sanctum::actingAs($student);
-        $this->getJson('/api/results/recommendation')->assertOk()->assertJsonMissingPath('recommendation.evidence')->assertJsonMissingPath('recommendation.ranked_programs.0.score')->assertJsonMissingPath('recommendation.ranked_programs.0.exam_match')->assertJsonMissingPath('recommendation.ai_explanations');
+        $this->getJson('/api/results/recommendation')->assertOk()->assertJsonMissingPath('recommendation.evidence')->assertJsonMissingPath('recommendation.ranked_programs.0.score')->assertJsonMissingPath('recommendation.ranked_programs.0.exam_match')->assertJsonMissingPath('recommendation.ranked_programs.0.match_basis')->assertJsonMissingPath('recommendation.ai_explanations');
+        config(['services.gemini.api_key' => null]);
+        $this->postJson('/api/results/recommendation', ['interests' => array_fill_keys(array_keys($scores), 5)])
+            ->assertOk()->assertJsonMissingPath('recommendation.ranked_programs.0.match_basis');
+        $this->assertNotEmpty($student->examResults()->first()->recommendation_payload['ranked_programs'][0]['match_basis']);
+        $this->getJson('/api/results/recommendation')->assertOk()->assertJsonMissingPath('recommendation.ranked_programs.0.match_basis');
     }
 
     public function test_import_preview_is_non_mutating_and_stale_commits_roll_back(): void
@@ -378,7 +566,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
     {
         $student = Student::create(['first_name' => 'Expiry', 'last_name' => 'Test', 'email' => 'expiry@example.com', 'student_number' => 'EXPIRY', 'admission_year' => '2026-2027', 'account_status' => 'active']);
         Sanctum::actingAs($student);
-        $this->postJson('/api/exam/session')->assertOk();
+        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk();
         $this->travel(121)->minutes();
         $this->artisan('portal:maintain', ['--no-mail' => true])->assertSuccessful();
         $this->assertSame(1, ExamResult::count());
@@ -392,7 +580,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $student = Student::create(['first_name' => 'Bank', 'last_name' => 'Test', 'email' => 'bank@example.com', 'student_number' => 'BANK', 'admission_year' => 'TEST', 'account_status' => 'active']);
         Sanctum::actingAs($student);
         $this->getJson('/api/exam/questions')->assertOk()->assertJsonMissingPath('questions.0.question_text')->assertJsonMissingPath('questions.0.correct_answer');
-        $session = $this->postJson('/api/exam/session')->assertOk()->json();
+        $session = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
         $admin = \App\Models\Admin::create(['name' => 'Exam manager', 'email' => 'bank-admin@example.com', 'role' => 'exam_manager', 'status' => 'active']);
         Sanctum::actingAs($admin);
         $this->deleteJson('/api/admin/questions/'.$session['questions'][0]['id'])->assertStatus(422);

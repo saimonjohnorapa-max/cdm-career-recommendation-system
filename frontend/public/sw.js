@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cdm-career-shell-v4';
+const CACHE_NAME = 'cdm-career-shell-v5';
 const BASE_PATH = new URL('./', self.registration.scope).pathname;
 const APP_SHELL = [BASE_PATH, `${BASE_PATH}manifest.webmanifest`, `${BASE_PATH}The_Colegio_de_Montalban_Seal.png`, `${BASE_PATH}icon-192.png`, `${BASE_PATH}icon-512.png`];
 

@@ -89,6 +89,7 @@ class ExamSessionService
         return ['success' => true, 'session_id' => $session->id, 'attempt_number' => $session->attempt_number,
             'bank_version' => $session->bank_version, 'revision' => $session->revision, 'position' => $session->position,
             'exam_completed' => (bool) $session->exam_result_id, 'server_now' => now()->toIso8601String(),
+            'terminated_at' => $session->terminated_at?->toIso8601String(), 'termination_reason' => $session->termination_reason,
             'deadline' => $session->deadline->toIso8601String(), 'answers' => $session->answers,
             'questions' => array_map(fn ($q) => array_diff_key($q, ['correct_answer' => true]), $session->questions),
             'time_limit' => self::TIME_LIMIT_MINUTES];

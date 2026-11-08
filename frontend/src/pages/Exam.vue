@@ -14,7 +14,21 @@
     </div>
 
     <!-- Instructions -->
-    <div v-if="!examStarted && !examCompleted" class="school-card p-8">
+    <div v-if="accessDenied" role="alert" class="school-card p-8">
+      <h2 class="text-2xl font-bold text-gray-900 mb-3">On-site examination only</h2>
+      <p class="text-gray-700 mb-4">{{ accessDenied }}</p>
+      <router-link to="/results" class="underline font-semibold">View Exam Results</router-link>
+    </div>
+
+    <div v-if="examTerminated" role="alert" class="school-card p-8">
+      <h2 class="text-2xl font-bold text-red-800 mb-3">Examination session ended</h2>
+      <p class="text-gray-700 mb-4">You left the examination page or switched away from it. This attempt is locked and cannot be resumed. Answers saved on the server are submitted; unanswered questions receive zero marks. Please inform the proctor.</p>
+      <p v-if="progressWarning" class="text-red-700 mb-4">{{ progressWarning }}</p>
+      <button v-if="!examCompleted" @click="sendTermination" class="underline font-semibold mr-4">Retry confirming session end</button>
+      <router-link to="/results" class="underline font-semibold">View Exam Status</router-link>
+    </div>
+
+    <div v-if="!examStarted && !examCompleted && !accessDenied && !examTerminated" class="school-card p-8">
       <div class="flex items-center space-x-3 mb-6">
         <span class="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style="background: var(--color-school-green);">📋</span>
         <h2 class="text-2xl font-bold text-gray-900" style="font-family: var(--font-heading);">Exam Instructions</h2>
@@ -34,7 +48,7 @@
 
         <div class="flex space-x-4 items-start">
           <span class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style="background: var(--color-school-green);">3</span>
-          <p class="text-gray-700 pt-1">Each attempt has five topics with 20 randomly selected questions per topic. Topic order and question order are randomized when you start, including on your retake. Your assigned order stays the same when you resume. You can go back to review your answers before submitting.</p>
+          <p class="text-gray-700 pt-1">Each attempt has five topics with 20 randomly selected questions per topic. Topic order and question order are randomized when you start, including on your retake. You can review your answers while this examination page remains open and active.</p>
         </div>
 
         <div class="flex space-x-4 items-start">
@@ -57,11 +71,25 @@
 
       <p v-if="loadError" class="mb-4 text-red-600">{{ loadError }}</p>
       <p v-if="progressWarning" role="alert" class="mb-4 text-red-600">{{ progressWarning }}</p>
-      <p class="mb-4 text-sm text-gray-600">Your answers are saved to your account while connected. The 120-minute deadline continues if you leave. At the deadline, the server submits the answers it has received; reconnect before time runs out to save offline changes.</p>
+      <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-5">
+        <h3 class="font-bold text-red-900 mb-3">Strict Examination Rules</h3>
+        <ol class="list-decimal pl-5 space-y-2 text-sm text-red-900">
+          <li>Take the exam only on a desktop or laptop at the designated campus examination site and network. Phones and tablets are for viewing portal information and results only.</li>
+          <li>Keep this tab active. Opening or switching to another tab or window, switching applications, minimizing the browser, refreshing, closing, or leaving this page ends this attempt immediately. Losing browser focus also ends the attempt.</li>
+          <li>An ended attempt cannot be resumed. The server submits the answers already saved; unanswered questions receive zero marks. Ending an attempt counts toward your attempt limit.</li>
+          <li>No notes, unauthorized websites, AI tools, communication, or assistance from others. Follow the proctor's instructions and report technical problems immediately.</li>
+          <li>The timer does not pause. Answers are saved while connected; at the deadline the server submits saved answers. Submitted answers cannot be changed.</li>
+          <li>Results are released by the Registrar. One final retake is available only after an official failing first result is published.</li>
+        </ol>
+      </div>
+      <label class="flex items-start gap-3 mb-5 text-sm text-gray-800">
+        <input v-model="rulesAccepted" type="checkbox" class="mt-1" />
+        <span>I have read and agree to the strict examination rules, including immediate session termination if I switch away or leave this page.</span>
+      </label>
       <button v-if="loadError" @click="loadExam" class="mb-4 underline">Retry loading exam</button>
       <button
         @click="startExam"
-        :disabled="loading || !!loadError || !totalQuestions"
+        :disabled="loading || !!loadError || !totalQuestions || !rulesAccepted"
         class="w-full py-3 rounded-md font-bold text-white transition text-lg"
         style="background: var(--color-school-green);"
       >
@@ -69,9 +97,9 @@
       </button>
     </div>
 
-    <div v-if="examStarted && loadError" role="alert" class="school-card p-4">{{ loadError }} <button class="underline" @click="loadExam">Reload saved exam</button></div><!-- Exam Interface -->
-    <div v-if="examStarted && !examCompleted && currentQuestion" class="school-card p-8">
-      <p role="status" class="mb-4 text-sm" :class="progressWarning ? 'text-red-600' : 'text-green-800'">{{ progressWarning || 'Answers saved to your account. The timer continues even if you leave this page.' }}</p>
+    <div v-if="examStarted && loadError && !examTerminated && !accessDenied" role="alert" class="school-card p-4">{{ loadError }} <button class="underline" @click="loadExam">Reload saved exam</button></div><!-- Exam Interface -->
+    <div v-if="examStarted && !examCompleted && !examTerminated && !accessDenied && currentQuestion" class="school-card p-8">
+      <p role="status" class="mb-4 text-sm" :class="progressWarning ? 'text-red-600' : 'text-green-800'">{{ progressWarning || 'Keep this tab active. Switching away or leaving this page immediately ends your attempt.' }}</p>
       <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 pb-6 border-b border-gray-100 gap-4">
         <div class="flex items-center space-x-6">
           <div class="text-center">
@@ -207,7 +235,7 @@
     </div>
 
     <!-- Results Summary -->
-    <div v-if="examCompleted" class="school-card p-8 text-center">
+    <div v-if="examCompleted && !examTerminated && !accessDenied" class="school-card p-8 text-center">
       <div class="mx-auto w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl mb-4" style="background: var(--color-school-green);">✓</div>
       <h2 class="text-3xl font-bold mb-3" style="font-family: var(--font-heading); color: var(--color-school-green);">Congratulations on completing the exam!</h2>
       <p class="text-gray-600 mb-6">Your official result status will appear after the Registrar publishes it.</p>
@@ -231,6 +259,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import api from '../utils/api.js';
+import { isMobileExamDevice } from '../utils/exam-device.js';
 import Swal from 'sweetalert2';
 
 const questions = ref([]);
@@ -254,6 +283,12 @@ const loadError = ref('');
 const submitting = ref(false);
 const confirming = ref(false);
 const progressWarning = ref('');
+const rulesAccepted = ref(false);
+const accessDenied = ref('');
+const examTerminated = ref(false);
+let terminationKey = '';
+let pendingTermination = null;
+let terminating = null;
 let progressKey = '';
 let questionSignature = '';
 let deadline = 0;
@@ -265,6 +300,7 @@ let clockOffset = 0;
 
 const applySession = (data) => {
   sessionId = data.session_id;
+  if (data.terminated_at) examTerminated.value = true;
   revision = Number(data.revision);
   attemptNumber.value = data.attempt_number;
   questions.value = data.questions;
@@ -287,7 +323,7 @@ const applySession = (data) => {
 const syncProgress = () => {
   clearTimeout(saveTimer);
   saving = saving.catch(() => {}).then(async () => {
-    if (!sessionId || examCompleted.value || loadError.value) return;
+    if (!sessionId || examCompleted.value || examTerminated.value || accessDenied.value || loadError.value) return;
     const sentAnswers = { ...answers.value };
     const response = await api.put('/exam/session', { session_id: sessionId, revision, answers: sentAnswers, position: currentQuestionIndex.value });
     revision = response.data.revision;
@@ -298,7 +334,11 @@ const syncProgress = () => {
     }
     progressWarning.value = JSON.stringify(sentAnswers) === JSON.stringify(answers.value) ? '' : 'Saving changes...';
   }).catch(error => {
-    progressWarning.value = error.response?.status === 401 ? 'Sign in again to reconnect. Your server-saved exam keeps its original deadline.' : 'Changes have not reached the server. Keep this page open and reconnect before the deadline.';
+    progressWarning.value = error.response?.status === 401 ? 'Your login has expired. Inform the proctor immediately; do not leave this page.' : 'Changes have not reached the server. Keep this page active and inform the proctor immediately.';
+    if (error.response?.data?.exam_access_denied) {
+      accessDenied.value = error.response.data.message;
+      endSession('page_left');
+    }
     if (error.response?.status === 409) loadError.value = error.response.data.message;
     throw error;
   });
@@ -306,7 +346,7 @@ const syncProgress = () => {
 };
 
 const saveProgress = () => {
-  if (!progressKey || !examStarted.value || examCompleted.value) return false;
+  if (!progressKey || !examStarted.value || examCompleted.value || examTerminated.value) return false;
   progressWarning.value = 'Saving changes...';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => syncProgress().catch(() => {}), 1000);
@@ -349,11 +389,30 @@ const loadExam = async () => {
     const profile = await api.get('/auth/profile');
     const studentId = profile.data?.student?.id;
     if (!studentId) throw new Error('Unable to identify the current student.');
+    terminationKey = `cdm-exam-termination:${studentId}`;
+    try { pendingTermination = JSON.parse(localStorage.getItem(terminationKey) || 'null'); } catch { /* Continue with server state. */ }
+    if (pendingTermination) {
+      examTerminated.value = true;
+      await sendTermination();
+      return;
+    }
+    if (isMobileExamDevice()) {
+      accessDenied.value = 'Mobile phones and tablets cannot take the entrance examination. Please use a desktop or laptop at the designated campus examination site. You can view your results on mobile.';
+      return;
+    }
+    const access = await api.get('/exam/access');
+    if (!access.data.allowed) {
+      accessDenied.value = access.data.message || 'Please use a desktop or laptop on the campus examination network.';
+      return;
+    }
     progressKey = `cdm-exam-progress:v1:${studentId}`;
     try {
       const active = await api.get('/exam/session');
       applySession(active.data);
-      if (!examCompleted.value) startTimer();
+      if (!examCompleted.value) {
+        if (document.hidden || !document.hasFocus()) endSession('focus_lost');
+        else startTimer();
+      }
       return;
     } catch (error) { if (error.response?.status !== 404) throw error; }
     try {
@@ -364,6 +423,7 @@ const loadExam = async () => {
         progressKey = `cdm-exam-progress:v1:${studentId}:attempt:2`;
       } else if (result.data.exam_completed) {
         examCompleted.value = true;
+        examTerminated.value = !!result.data.terminated_at;
         clearProgress();
         return;
       }
@@ -384,7 +444,8 @@ const loadExam = async () => {
     // The server owns recovery. Legacy local drafts are not used to reset a deadline.
   } catch (error) {
     console.error('Error fetching questions:', error);
-    loadError.value = 'Unable to load or restore the examination. Please retry. If the question bank has changed, contact the exam administrator; your saved progress has been kept.';
+    if (error.response?.data?.exam_access_denied) accessDenied.value = error.response.data.message;
+    else loadError.value = 'Unable to load or restore the examination. Please retry or contact the examination proctor.';
   } finally {
     loading.value = false;
   }
@@ -393,7 +454,7 @@ onMounted(loadExam);
 
 const handleAnswerKey = (event) => {
   if (event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
-  if (!examStarted.value || examCompleted.value || loadError.value || submitting.value || confirming.value || showAnswerList.value || timeRemaining.value <= 0 || !currentQuestion.value) return;
+  if (!examStarted.value || examCompleted.value || examTerminated.value || accessDenied.value || loadError.value || submitting.value || confirming.value || showAnswerList.value || timeRemaining.value <= 0 || !currentQuestion.value) return;
   if (Swal.isVisible()) return;
   const target = event.target;
   if (target?.isContentEditable || target?.closest?.('textarea, select, [role="textbox"], [role="dialog"], [aria-modal="true"]')) return;
@@ -413,14 +474,21 @@ const handleAnswerKey = (event) => {
 onMounted(() => window.addEventListener('keydown', handleAnswerKey));
 
 const startExam = async () => {
-  if (loading.value || loadError.value || !totalQuestions.value || examStarted.value || examCompleted.value) return;
+  if (loading.value || loadError.value || accessDenied.value || examTerminated.value || !rulesAccepted.value || !totalQuestions.value || examStarted.value || examCompleted.value) return;
   loading.value = true;
-  try { applySession((await api.post('/exam/session')).data); if (!examCompleted.value) startTimer(); }
+  try {
+    applySession((await api.post('/exam/session', { rules_accepted: true })).data);
+    if (!examCompleted.value) {
+      if (document.hidden || !document.hasFocus()) endSession('focus_lost');
+      else startTimer();
+    }
+  }
   catch (error) { loadError.value = error.response?.data?.message || 'Unable to start the exam. Please retry.'; }
   finally { loading.value = false; }
 };
 
 const startTimer = () => {
+  if (examTerminated.value || examCompleted.value) return;
   clearInterval(timer.value);
   timer.value = setInterval(() => {
     timeRemaining.value = Math.max(0, Math.ceil((deadline - Date.now() - clockOffset) / 1000));
@@ -451,7 +519,7 @@ const toggleAnswerList = () => {
 };
 
 const submitExam = async (expired = false) => {
-  if (submitting.value || examCompleted.value || !examStarted.value) return;
+  if (submitting.value || examCompleted.value || examTerminated.value || !examStarted.value) return;
   if (!expired && timeRemaining.value > 0) {
     if (confirming.value) return;
     confirming.value = true;
@@ -465,13 +533,14 @@ const submitExam = async (expired = false) => {
   });
 
     confirming.value = false;
-    if (!confirm.isConfirmed || submitting.value || examCompleted.value) return;
+    if (!confirm.isConfirmed || submitting.value || examCompleted.value || examTerminated.value) return;
   }
 
   submitting.value = true;
   clearTimeout(saveTimer);
   try {
     await saving.catch(() => {});
+    if (examTerminated.value) return;
     const response = await api.post('/exam/submit', {
       session_id: sessionId,
       revision,
@@ -502,6 +571,7 @@ const submitExam = async (expired = false) => {
 };
 
 const resumeClock = () => {
+  if (pendingTermination) { sendTermination(); return; }
   if (!examStarted.value || examCompleted.value) return;
   timeRemaining.value = Math.max(0, Math.ceil((deadline - Date.now() - clockOffset) / 1000));
   syncProgress().catch(() => {});
@@ -511,14 +581,54 @@ const resumeClock = () => {
     submitExam(true);
   }
 };
+// A small keepalive request can finish after pagehide. A persistent marker prevents
+// this browser from resuming an attempt whose termination could not reach the server.
+const sendTermination = () => {
+  if (!pendingTermination) return Promise.resolve();
+  if (terminating) return terminating;
+  const payload = { ...pendingTermination };
+  terminating = api.post('/exam/session/terminate', payload, { adapter: 'fetch', fetchOptions: { keepalive: true } })
+    .then(response => {
+      applySession(response.data);
+      pendingTermination = null;
+      try { localStorage.removeItem(terminationKey); } catch { /* Server has finalized the attempt. */ }
+      progressWarning.value = '';
+    })
+    .catch(() => {
+      progressWarning.value = 'Session locked. Server confirmation is pending. Stay connected and inform the proctor; your attempt cannot be resumed.';
+    })
+    .finally(() => { terminating = null; });
+  return terminating;
+};
+
+const endSession = (reason) => {
+  if (!examStarted.value || examCompleted.value || examTerminated.value) return;
+  examTerminated.value = true;
+  clearInterval(timer.value);
+  clearTimeout(saveTimer);
+  showAnswerList.value = false;
+  if (confirming.value) Swal.close();
+  pendingTermination = { session_id: sessionId, reason };
+  try { localStorage.setItem(terminationKey, JSON.stringify(pendingTermination)); } catch { /* Keepalive still attempts server finalization. */ }
+  sendTermination();
+};
+const handleVisibility = () => { if (document.hidden) endSession('tab_hidden'); else resumeClock(); };
+const handleBlur = () => endSession('focus_lost');
+const handlePageHide = () => endSession('page_left');
 onMounted(() => {
-  window.addEventListener('pagehide', saveProgress);
+  document.addEventListener('visibilitychange', handleVisibility);
+  window.addEventListener('blur', handleBlur);
+  window.addEventListener('pagehide', handlePageHide);
+  window.addEventListener('online', resumeClock);
   window.addEventListener('focus', resumeClock);
 });
 onBeforeUnmount(() => {
+  endSession('page_left');
   clearTimeout(saveTimer);
-  syncProgress().catch(() => {});
-  window.removeEventListener('pagehide', saveProgress);
+  document.removeEventListener('visibilitychange', handleVisibility);
+  window.removeEventListener('blur', handleBlur);
+  window.removeEventListener('pagehide', handlePageHide);
+  window.removeEventListener('online', resumeClock);
   window.removeEventListener('focus', resumeClock);
   window.removeEventListener('keydown', handleAnswerKey);
   clearInterval(timer.value);

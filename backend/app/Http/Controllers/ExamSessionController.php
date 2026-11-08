@@ -6,6 +6,11 @@ use Illuminate\Http\Request;
 
 class ExamSessionController extends Controller
 {
+    public function access(Request $request, \App\Services\ExamAccessPolicy $policy)
+    {
+        $message = $policy->denial($request);
+        return response()->json(['allowed' => $message === null, 'message' => $message]);
+    }
     public function current(Request $request, ExamSessionService $service)
     {
         $session = ExamSession::where('student_id', $request->user()->id)->whereNull('exam_result_id')->first();
@@ -14,6 +19,7 @@ class ExamSessionController extends Controller
     }
     public function start(Request $request, ExamSessionService $service)
     {
+        $request->validate(['rules_accepted' => 'required|accepted']);
         $session = $service->start($request->user());
         return $service->withLockedSession($request->user(), $session->id, fn ($s) => response()->json($service->payload($s)));
     }
@@ -24,6 +30,17 @@ class ExamSessionController extends Controller
     public function submit(Request $request, ExamSessionService $service)
     {
         return $this->write($request, $service, true);
+    }
+    public function terminate(Request $request, ExamSessionService $service)
+    {
+        $data = $request->validate(['session_id' => 'required|uuid', 'reason' => 'required|in:tab_hidden,focus_lost,page_left']);
+        return $service->withLockedSession($request->user(), $data['session_id'], function ($session) use ($data, $service) {
+            if (!$session->exam_result_id) {
+                $session->update(['terminated_at' => now(), 'termination_reason' => $data['reason']]);
+                $service->finish($session);
+            }
+            return response()->json($service->payload($session));
+        });
     }
     private function write(Request $request, ExamSessionService $service, bool $submit)
     {

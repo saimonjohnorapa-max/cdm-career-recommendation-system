@@ -6,7 +6,7 @@
       <div class="relative z-10 flex flex-col justify-between p-10 xl:p-14 text-white w-full">
         <div>
           <div class="flex items-center space-x-3 mb-10">
-            <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban" class="w-14 h-14 object-contain" />
+            <img :src="schoolSeal" alt="Colegio de Montalban" class="w-14 h-14 object-contain" />
             <div>
               <p class="text-lg font-bold tracking-wide" style="font-family: var(--font-heading);">Colegio de Montalban</p>
               <p class="text-xs font-semibold tracking-[0.2em] uppercase" style="color: var(--color-school-gold);">Career Recommendation System</p>
@@ -49,7 +49,7 @@
       <div class="w-full min-w-0 max-w-md">
         <!-- Mobile header -->
         <div class="lg:hidden text-center mb-5 sm:mb-8">
-          <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban" class="w-14 h-14 mx-auto mb-3 object-contain" />
+          <img :src="schoolSeal" alt="Colegio de Montalban" class="w-14 h-14 mx-auto mb-3 object-contain" />
           <h1 class="text-2xl font-bold" style="font-family: var(--font-heading); color: var(--color-school-green);">Colegio de Montalban</h1>
           <p class="text-xs font-semibold tracking-wide uppercase mt-1" style="color: #8a6b12;">Career Recommendation System</p>
           <p class="text-sm text-gray-500 mt-1">Please sign in to continue</p>
@@ -65,8 +65,9 @@
 
           <form @submit.prevent="handleEmailLogin" class="space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <input
+                id="login-email"
                 v-model="loginForm.email"
                 type="email"
                 autocomplete="email"
@@ -77,8 +78,9 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+              <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
               <input
+                id="login-password"
                 v-model="loginForm.password"
                 type="password"
                 autocomplete="current-password"
@@ -142,7 +144,7 @@
         </div>
 
         <!-- Error Message -->
-        <div v-if="errorMessage && !otpChallenge" class="mt-4 p-4 border rounded-md text-sm" style="background: #fef2f2; border-color: #fecaca; color: #991b1b;">
+        <div v-if="errorMessage && !otpChallenge" role="alert" class="mt-4 p-4 border rounded-md text-sm" style="background: #fef2f2; border-color: #fecaca; color: #991b1b;">
           {{ errorMessage }}
         </div>
 
@@ -161,6 +163,7 @@
 </template>
 
 <script setup>
+const schoolSeal = `${import.meta.env.BASE_URL}The_Colegio_de_Montalban_Seal.png`;
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';

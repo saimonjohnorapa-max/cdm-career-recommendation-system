@@ -30,7 +30,7 @@
 -->
           </div>
           <div class="hero-badge">
-            <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban seal">
+            <img :src="schoolSeal" alt="Colegio de Montalban seal">
             <div><strong>Choose with confidence</strong><span>Guided by your strengths</span></div>
           </div>
         </div>
@@ -57,7 +57,7 @@
             <figcaption><span>Campus life</span><strong>A place to learn and grow</strong></figcaption>
           </figure>
           <div class="photo-b seal-card">
-            <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban official seal">
+            <img :src="schoolSeal" alt="Colegio de Montalban official seal">
             <span>Colegio de Montalban</span>
           </div>
           <div class="collage-note"><strong>Built for every applicant</strong><span>Simple. Secure. Student-centered.</span></div>
@@ -110,7 +110,7 @@
         <div class="portal-preview">
           <div class="preview-top"><i></i><i></i><i></i><span>Student Portal</span></div>
           <div class="preview-body">
-            <aside><div class="mini-logo"><img src="/The_Colegio_de_Montalban_Seal.png" alt=""></div><i></i><i></i><i></i><i></i></aside>
+            <aside><div class="mini-logo"><img :src="schoolSeal" alt=""></div><i></i><i></i><i></i><i></i></aside>
             <main><div class="preview-welcome"><small>WELCOME, STUDENT</small><strong>Your academic journey</strong></div><div class="preview-stats"><i></i><i></i><i></i></div><div class="preview-chart"></div></main>
           </div>
         </div>
@@ -131,14 +131,14 @@
         </div>
         <div class="campus-map">
           <iframe title="Google Map showing Colegio de Montalban in Rodriguez, Rizal" src="https://www.google.com/maps?q=14.75365,121.15105&amp;z=16&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
-          <div class="map-label"><img src="/The_Colegio_de_Montalban_Seal.png" alt=""><p><strong>Colegio de Montalban</strong><span>Rodriguez, Rizal</span></p></div>
+          <div class="map-label"><img :src="schoolSeal" alt=""><p><strong>Colegio de Montalban</strong><span>Rodriguez, Rizal</span></p></div>
         </div>
       </div>
     </section>
 
     <section class="cta-section">
       <div class="site-shell cta-inner">
-        <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban seal">
+        <img :src="schoolSeal" alt="Colegio de Montalban seal">
         <div><p class="eyebrow"><span></span> Begin today</p><h2>Your future at Colegio de Montalban starts here.</h2></div>
         <router-link :to="primaryRoute" class="button button-green">{{ isLoggedIn ? 'Open portal' : 'Apply now' }} <span>→</span></router-link>
       </div>
@@ -147,6 +147,7 @@
 </template>
 
 <script setup>
+const schoolSeal = `${import.meta.env.BASE_URL}The_Colegio_de_Montalban_Seal.png`;
 import { computed, onMounted, ref } from 'vue';
 import { useAuthStore } from '../stores/authStore';
 import api, { API_BASE } from '../utils/api.js';

@@ -45,7 +45,14 @@
           </div>
           <p v-if="recommendation.tied_top_codes.includes(program.course_code)" class="text-sm font-semibold text-green-800">{{ recommendation.tied_top_codes.length > 1 ? 'Joint highest match' : 'Highest calculated match' }}</p>
           <p v-if="program.exam_match !== undefined" class="text-sm text-gray-600">Exam alignment: {{ program.exam_match }} / 100<span v-if="program.interest_match !== null"> | Interest alignment: {{ program.interest_match }} / 100</span></p>
+          <ProgramMatchReason
+            v-if="program.match_basis"
+            :program="program"
+            :is-top="recommendation.tied_top_codes.includes(program.course_code)"
+            :is-tied="recommendation.tied_top_codes.length > 1"
+          />
           <template v-if="recommendation.ai_explanations?.[program.course_code]">
+            <h3 class="font-semibold">AI guidance for this program</h3>
             <p>{{ recommendation.ai_explanations[program.course_code].explanation }}</p>
             <p><strong>Next step:</strong> {{ recommendation.ai_explanations[program.course_code].next_step }}</p>
           </template>
@@ -66,6 +73,7 @@
 import { ref, onMounted } from 'vue';
 import api from '../utils/api.js';
 import Swal from 'sweetalert2';
+import ProgramMatchReason from '../components/ProgramMatchReason.vue';
 const interestItems = [
   { category: 'General Mathematics', label: 'Working with numbers and mathematical problems' },
   { category: 'Science', label: 'Investigating how the natural world works' },
@@ -113,9 +121,10 @@ async function generate() {
         const availability = result.ai_status === 'unavailable'
           ? '\n\nAI explanations are temporarily unavailable. These are your calculated matches.'
           : '';
+        const reason = matches.length === 1 ? matches[0].match_basis?.summary : '';
         await Swal.fire({
           title: matches.length > 1 ? 'Your highest-matching programs' : 'Your highest-matching program',
-          text: `${names}\n\nBased on your assessment and interest ratings.${matches.length > 1 ? ' These programs are equally matched.' : ''}${availability}`,
+          text: `${names}\n\n${reason || 'Based on your assessment and interest ratings.'}${matches.length > 1 ? ' These programs are equally matched.' : ''}${availability}`,
           footer: 'Program guidance is not a final admission decision.',
           icon: result.ai_status === 'unavailable' ? 'info' : 'success',
           confirmButtonText: 'View my guidance',

@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\OtpException;
+use App\Exceptions\GoogleVerificationUnavailable;
 use App\Models\Student;
 use App\Models\StudentActivityLog;
 use App\Services\AuthOtpService;
 use App\Services\TrustedDeviceService;
-use Google\Auth\AccessToken as GoogleAccessToken;
+use App\Services\GoogleTokenVerifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -257,7 +258,7 @@ class AuthController extends Controller
                     'google_id' => $googleData['sub'],
                     'is_google_account' => true,
                     'profile_picture' => $googleData['picture'] ?? null,
-                ]);
+                ])->refresh();
             } elseif (!$student->google_id) {
                 $student->update(['google_id' => $googleData['sub']]);
             }
@@ -284,6 +285,9 @@ class AuthController extends Controller
                 'student_number' => $student->student_number,
                 'admission_year' => $student->admission_year,
             ], 200);
+        } catch (GoogleVerificationUnavailable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 503);
         } catch (\Throwable $e) {
             report($e);
             return response()->json([
@@ -379,16 +383,7 @@ class AuthController extends Controller
 
     private function verifyGoogleToken(string $token): ?array
     {
-        $clientId = (string) config('services.google.client_id');
-        if ($clientId === '' || $clientId === 'your_google_client_id') {
-            throw new \RuntimeException('GOOGLE_CLIENT_ID is not configured.');
-        }
-
-        $payload = (new GoogleAccessToken())->verify($token, [
-            'audience' => $clientId,
-            'throwException' => false,
-        ]);
-        return is_array($payload) ? $payload : null;
+        return app(GoogleTokenVerifier::class)->verify($token);
     }
 
     private function isVerifiedGoogleAccount(array $claims): bool

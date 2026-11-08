@@ -2,7 +2,7 @@
   <router-view v-if="route.name === 'Login'" />
   <div v-else class="admin-shell">
     <aside :class="['sidebar', { open: menuOpen }]">
-      <div class="brand"><img src="/The_Colegio_de_Montalban_Seal.png" alt="CDM seal"><div><strong>Colegio de Montalban</strong><small>Administration Portal</small></div></div>
+      <div class="brand"><img :src="schoolSeal" alt="CDM seal"><div><strong>Colegio de Montalban</strong><small>Administration Portal</small></div></div>
       <nav>
         <router-link v-for="item in visibleNav" :key="item.to" :to="item.to" @click="menuOpen=false"><span>{{ item.icon }}</span>{{ item.label }}</router-link>
       </nav>
@@ -16,6 +16,7 @@
   </div>
 </template>
 <script setup>
+const schoolSeal = `${import.meta.env.BASE_URL}The_Colegio_de_Montalban_Seal.png`;
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAdminAuth } from './stores/auth';

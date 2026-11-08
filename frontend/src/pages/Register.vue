@@ -6,7 +6,7 @@
       <div class="relative z-10 flex flex-col justify-between p-10 xl:p-14 text-white w-full">
         <div>
           <div class="flex items-center space-x-3 mb-10">
-            <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban" class="w-14 h-14" />
+            <img :src="schoolSeal" alt="Colegio de Montalban" class="w-14 h-14" />
             <div>
               <p class="text-lg font-bold tracking-wide" style="font-family: var(--font-heading);">Colegio de Montalban</p>
               <p class="text-xs tracking-[0.2em] uppercase opacity-80">Admissions Portal</p>
@@ -45,7 +45,7 @@
       <div class="w-full max-w-md">
         <!-- Mobile header -->
         <div class="lg:hidden text-center mb-8">
-          <img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban" class="w-14 h-14 mx-auto mb-3 object-contain" />
+          <img :src="schoolSeal" alt="Colegio de Montalban" class="w-14 h-14 mx-auto mb-3 object-contain" />
           <h1 class="text-2xl font-bold" style="font-family: var(--font-heading); color: var(--color-school-green);">Create Student Account</h1>
         </div>
 
@@ -194,6 +194,7 @@
 </template>
 
 <script setup>
+const schoolSeal = `${import.meta.env.BASE_URL}The_Colegio_de_Montalban_Seal.png`;
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';

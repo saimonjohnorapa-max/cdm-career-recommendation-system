@@ -1,0 +1,172 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="current-erd" name="Current database - all tables">
+    <mxGraphModel dx="4060" dy="2368" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="3200" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;fontSize=28;fontColor=#000000;" value="ENTITY RELATIONSHIP DIAGRAM" vertex="1">
+          <mxGeometry height="55" width="3000" x="55" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="students" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="students" vertex="1">
+          <mxGeometry height="505" width="430" x="690" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="students_fields" parent="students" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;first_name&#xA;last_name&#xA;UQ email&#xA;phone ?&#xA;password ?&#xA;UQ google_id ?&#xA;UQ student_number&#xA;admission_year&#xA;date_of_birth ?&#xA;profile_picture ?&#xA;is_google_account&#xA;account_status&#xA;exam_taken&#xA;exam_score ?&#xA;recommended_program ?&#xA;email_verified_at ?&#xA;remember_token ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="467" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_results" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="exam_results" vertex="1">
+          <mxGeometry height="597" width="430" x="1340" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_results_fields" parent="exam_results" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;FK student_id&#xA;total_score&#xA;percentage&#xA;time_spent&#xA;exam_date&#xA;is_passed&#xA;category_scores (JSON) ?&#xA;official_score ?&#xA;official_status&#xA;registrar_remarks ?&#xA;FK approved_by ?&#xA;approved_at ?&#xA;FK published_by ?&#xA;published_at ?&#xA;category_maximums (JSON) ?&#xA;career_interests (JSON) ?&#xA;recommendation_payload (JSON) ?&#xA;registrar_pass&#xA;registrar_pass_reason ?&#xA;FK registrar_pass_by ?&#xA;registrar_pass_at ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="559" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_sessions" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="exam_sessions" vertex="1">
+          <mxGeometry height="411" width="430" x="690" y="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_sessions_fields" parent="exam_sessions" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id (UUID)&#xA;FK student_id&#xA;attempt_number&#xA;bank_version&#xA;questions (JSON)&#xA;answers (JSON)&#xA;revision&#xA;position&#xA;started_at&#xA;deadline&#xA;terminated_at ?&#xA;termination_reason ?&#xA;FK exam_result_id ?&#xA;created_at&#xA;updated_at&#xA;UQ (student_id, attempt_number)" vertex="1">
+          <mxGeometry height="373" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_session_questions" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="exam_session_questions" vertex="1">
+          <mxGeometry height="114" width="430" x="1340" y="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_session_questions_fields" parent="exam_session_questions" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK, FK exam_session_id (UUID)&#xA;PK, FK exam_question_id&#xA;Composite PK: both fields" vertex="1">
+          <mxGeometry height="76" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_questions" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="exam_questions" vertex="1">
+          <mxGeometry height="344" width="430" x="1990" y="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_questions_fields" parent="exam_questions" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;question_number&#xA;question_text&#xA;category&#xA;option_a&#xA;option_b&#xA;option_c&#xA;option_d&#xA;correct_answer&#xA;difficulty_level&#xA;is_active&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="306" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_answers" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="exam_answers" vertex="1">
+          <mxGeometry height="206" width="430" x="1990" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="exam_answers_fields" parent="exam_answers" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;FK exam_result_id&#xA;FK exam_question_id&#xA;student_answer ?&#xA;is_correct&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="168" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="recommendations" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="recommendations" vertex="1">
+          <mxGeometry height="229" width="430" x="690" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="recommendations_fields" parent="recommendations" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;FK, UQ student_id&#xA;FK course_id&#xA;confidence_score&#xA;reasoning&#xA;alternative_recommendations (JSON) ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="191" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="courses" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="courses" vertex="1">
+          <mxGeometry height="505" width="430" x="1340" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="courses_fields" parent="courses" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;UQ code&#xA;name&#xA;description&#xA;duration&#xA;tuition_fee ?&#xA;ideal_score_range ?&#xA;subjects (JSON) ?&#xA;institute ?&#xA;career_paths (JSON) ?&#xA;image_path ?&#xA;image_data ?&#xA;image_mime_type ?&#xA;program_type&#xA;is_active&#xA;is_recommendable&#xA;display_order&#xA;recommendation_profile (JSON) ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="467" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="admins" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="admins" vertex="1">
+          <mxGeometry height="298" width="430" x="2640" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="admins_fields" parent="admins" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;name&#xA;UQ email&#xA;UQ google_id ?&#xA;profile_picture ?&#xA;role&#xA;status&#xA;email_verified_at ?&#xA;last_login_at ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="260" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="admin_activity_logs" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="admin_activity_logs" vertex="1">
+          <mxGeometry height="252" width="430" x="2640" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="admin_activity_logs_fields" parent="admin_activity_logs" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;FK admin_id ?&#xA;action&#xA;subject_type ?&#xA;subject_id ?&#xA;details (JSON) ?&#xA;ip_address ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="214" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="result_import_previews" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="result_import_previews" vertex="1">
+          <mxGeometry height="183" width="430" x="1990" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="result_import_previews_fields" parent="result_import_previews" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id (UUID)&#xA;FK admin_id&#xA;rows (JSON)&#xA;expires_at&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="145" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_otp_challenges" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="auth_otp_challenges" vertex="1">
+          <mxGeometry height="344" width="430" x="40" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_otp_challenges_fields" parent="auth_otp_challenges" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id (UUID)&#xA;FK student_id ?&#xA;email&#xA;purpose&#xA;registration_payload ?&#xA;otp_hash&#xA;attempts_remaining&#xA;resend_count&#xA;expires_at&#xA;last_sent_at&#xA;consumed_at ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="306" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="trusted_devices" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="trusted_devices" vertex="1">
+          <mxGeometry height="229" width="430" x="40" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="trusted_devices_fields" parent="trusted_devices" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;FK student_id&#xA;UQ token_hash&#xA;user_agent ?&#xA;last_used_at ?&#xA;expires_at&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="191" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="student_activity_logs" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="student_activity_logs" vertex="1">
+          <mxGeometry height="229" width="430" x="40" y="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="student_activity_logs_fields" parent="student_activity_logs" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;FK student_id ?&#xA;action&#xA;auth_method ?&#xA;ip_address ?&#xA;user_agent ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="191" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="portal_notifications" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="portal_notifications" vertex="1">
+          <mxGeometry height="275" width="430" x="690" y="2430" as="geometry" />
+        </mxCell>
+        <mxCell id="portal_notifications_fields" parent="portal_notifications" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;FK student_id&#xA;message&#xA;link&#xA;read_at ?&#xA;emailed_at ?&#xA;email_attempts&#xA;email_retry_at ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="237" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="student_password_resets" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="student_password_resets" vertex="1">
+          <mxGeometry height="114" width="430" x="40" y="2430" as="geometry" />
+        </mxCell>
+        <mxCell id="student_password_resets_fields" parent="student_password_resets" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK email&#xA;token_hash&#xA;expires_at" vertex="1">
+          <mxGeometry height="76" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="personal_access_tokens" parent="1" style="swimlane;html=0;startSize=38;horizontal=1;rounded=0;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontSize=19;fontStyle=1;collapsible=0;" value="personal_access_tokens" vertex="1">
+          <mxGeometry height="275" width="430" x="2640" y="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="personal_access_tokens_fields" parent="personal_access_tokens" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;" value="PK id&#xA;tokenable_type&#xA;tokenable_id&#xA;name&#xA;UQ token&#xA;abilities ?&#xA;last_used_at ?&#xA;expires_at ?&#xA;created_at&#xA;updated_at" vertex="1">
+          <mxGeometry height="237" width="430" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="rel0" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_results" value="student_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel1" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_sessions" value="student_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel2" edge="1" parent="1" source="exam_results" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERzeroToOne;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_sessions" value="exam_result_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel3" edge="1" parent="1" source="exam_sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_session_questions" value="exam_session_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel4" edge="1" parent="1" source="exam_questions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_session_questions" value="exam_question_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel5" edge="1" parent="1" source="exam_results" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_answers" value="exam_result_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel6" edge="1" parent="1" source="exam_questions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_answers" value="exam_question_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel7" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToOne;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="recommendations" value="student_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel8" edge="1" parent="1" source="courses" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="recommendations" value="course_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel9" edge="1" parent="1" source="admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERzeroToOne;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="exam_results" value="approved_by / published_by / registrar_pass_by">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel10" edge="1" parent="1" source="admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERzeroToOne;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="admin_activity_logs" value="admin_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel11" edge="1" parent="1" source="admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="result_import_previews" value="admin_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel12" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERzeroToOne;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="auth_otp_challenges" value="student_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel13" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="trusted_devices" value="student_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel14" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERzeroToOne;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="student_activity_logs" value="student_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel15" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;" target="portal_notifications" value="student_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel16" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToOne;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;dashed=1;" target="student_password_resets" value="email (logical only)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel17" edge="1" parent="1" source="students" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;dashed=1;" target="personal_access_tokens" value="tokenable (polymorphic)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel18" edge="1" parent="1" source="admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=ERone;endArrow=ERzeroToMany;startFill=0;endFill=0;strokeColor=#000000;fontColor=#000000;fontSize=13;labelBackgroundColor=#ffffff;dashed=1;" target="personal_access_tokens" value="tokenable (polymorphic)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,9 +1,9 @@
 <template>
-  <div class="app-shell"><div v-if="sessionExpired" role="alert" class="p-4 bg-amber-100">Your session expired. <a href="/login" class="underline">Sign in again</a> to resume your server-saved examination.</div>
+  <div class="app-shell"><div v-if="sessionExpired" role="alert" class="p-4 bg-amber-100">Your session expired. <router-link to="/login" class="underline">Sign in again</router-link> to continue using the portal.</div>
     <div class="announcement-bar"><div class="header-shell"><span>Admissions and Career Recommendation Portal</span><span class="announcement-right">Rodriguez, Rizal · {{ currentYear }}</span></div></div>
     <header class="site-header" :class="{ 'site-header--landing': isLanding }">
       <div class="header-shell header-main">
-        <router-link to="/" class="brand" @click="mobileOpen=false"><img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban seal"><span><strong>Colegio de Montalban</strong><small>Career Recommendation System</small></span></router-link>
+        <router-link to="/" class="brand" @click="mobileOpen=false"><img :src="schoolSeal" alt="Colegio de Montalban seal"><span><strong>Colegio de Montalban</strong><small>Career Recommendation System</small></span></router-link>
         <nav v-if="isLoggedIn" class="desktop-nav" aria-label="Student navigation"><router-link v-for="item in studentNav" :key="item.to" :to="item.to">{{ item.short || item.label }}</router-link></nav>
         <nav v-else class="desktop-nav" aria-label="Website navigation"><router-link to="/">Home</router-link><router-link :to="{ path: '/', hash: '#about' }">About</router-link><router-link :to="{ path: '/', hash: '#programs' }">Programs</router-link><router-link :to="{ path: '/', hash: '#process' }">How it works</router-link><router-link :to="{ path: '/', hash: '#location' }">Location</router-link><router-link to="/download-app">Get the app</router-link></nav>
         <div class="header-actions">
@@ -21,7 +21,7 @@
     <VoiceAssistantPlaceholder v-if="route.name !== 'Exam'" />
     <footer v-if="showFooter" class="site-footer">
       <div class="footer-shell footer-grid">
-        <div class="footer-brand"><img src="/The_Colegio_de_Montalban_Seal.png" alt="Colegio de Montalban seal"><div><strong>Colegio de Montalban</strong><span>Career Recommendation System</span></div></div>
+        <div class="footer-brand"><img :src="schoolSeal" alt="Colegio de Montalban seal"><div><strong>Colegio de Montalban</strong><span>Career Recommendation System</span></div></div>
         <div><h3>Explore</h3><router-link to="/">Home</router-link><a href="/#about">About the system</a><a href="/#programs">Academic programs</a></div>
         <div><h3>Student services</h3><router-link :to="isLoggedIn?'/dashboard':'/login'">Student portal</router-link><router-link to="/exam">Entrance exam</router-link><router-link to="/results">Exam Status</router-link><router-link to="/recommendation">My Recommendation</router-link><router-link to="/download-app">Install mobile app</router-link></div>
         <div><h3>Get started</h3><p>Take the first step toward the program that fits your strengths.</p><router-link :to="isLoggedIn?'/dashboard':'/register'">{{ isLoggedIn?'Open dashboard':'Create an account' }} →</router-link></div>
@@ -31,6 +31,7 @@
   </div>
 </template>
 <script setup>
+const schoolSeal = `${import.meta.env.BASE_URL}The_Colegio_de_Montalban_Seal.png`;
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from './stores/authStore';

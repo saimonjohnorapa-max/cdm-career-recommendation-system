@@ -44,6 +44,7 @@ class ExamController extends Controller
             $student = $request->user();
             $attempts = ExamResult::where('student_id', $student->id)->latest('id')->get();
             $examResult = $attempts->first();
+            $session = $examResult ? \App\Models\ExamSession::where('exam_result_id', $examResult->id)->first() : null;
 
             if (!$examResult) {
                 return response()->json([
@@ -55,6 +56,8 @@ class ExamController extends Controller
             return response()->json([
                 'success' => true,
                 'exam_completed' => true,
+                'terminated_at' => $session?->terminated_at?->toIso8601String(),
+                'termination_reason' => $session?->termination_reason,
                 'attempts_used' => $attempts->count(),
                 'can_retake' => $attempts->count() === 1 && $examResult->allowsRetake(),
                 'official_status' => $examResult->official_status,
