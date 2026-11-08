@@ -118,21 +118,28 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $this->postJson('/api/exam/submit', $body)->assertOk()->assertJsonPath('exam_completed', true);
     }
 
-    public function test_mobile_and_tablets_cannot_access_exam_but_can_view_results(): void
+    public function test_phones_and_tablets_can_load_start_save_and_submit_exam(): void
     {
-        $this->examStudent();
-        foreach (['Mozilla/5.0 (iPhone) Mobile', 'Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPad)'] as $agent) {
-            $this->withHeader('User-Agent', $agent);
-            $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', false);
-            $this->getJson('/api/exam/questions')->assertForbidden();
-            $this->getJson('/api/exam/session')->assertForbidden();
-            $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertForbidden();
-            $this->putJson('/api/exam/session', [])->assertForbidden();
-            $this->postJson('/api/exam/submit', [])->assertForbidden();
-            $this->getJson('/api/exam/result')->assertNotFound();
+        foreach (['Mozilla/5.0 (iPhone) Mobile', 'Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPad)', 'Mozilla/5.0 (Macintosh)'] as $index => $agent) {
+            $this->examStudent('mobile-'.$index);
+            $this->withHeaders(['User-Agent' => $agent, 'Sec-CH-UA-Mobile' => '?1', 'X-Exam-Device' => 'mobile']);
+            $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', true)->assertJsonPath('message', null);
+            $this->getJson('/api/exam/questions')->assertOk();
+            $this->getJson('/api/exam/session')->assertNotFound();
+            $this->postJson('/api/exam/session', ['rules_accepted' => false])->assertUnprocessable();
+            $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
+            $this->getJson('/api/exam/session')->assertOk()->assertJsonPath('session_id', $start['session_id']);
+            $answers = $start['answers'];
+            $firstId = $start['questions'][0]['id'];
+            $answers[$firstId] = ExamQuestion::findOrFail($firstId)->correct_answer;
+            $body = ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $answers, 'position' => 1];
+            $saved = $this->putJson('/api/exam/session', $body)->assertOk()->json();
+            $this->assertSame($answers[$firstId], $saved['answers'][$firstId]);
+            $body['revision'] = $saved['revision'];
+            $this->postJson('/api/exam/submit', $body)->assertOk()->assertJsonPath('exam_completed', true);
+            $this->getJson('/api/exam/result')->assertOk()->assertJsonPath('exam_completed', true);
         }
-        $this->withHeaders(['User-Agent' => 'Mozilla/5.0 (Macintosh)', 'X-Exam-Device' => 'mobile'])->getJson('/api/exam/questions')->assertForbidden();
-        $this->assertSame(0, \App\Models\ExamSession::count());
+        $this->assertSame(4, ExamResult::count());
     }
 
     public function test_exam_requires_explicit_rules_acceptance(): void

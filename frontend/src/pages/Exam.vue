@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6 fade-in">
-    <div class="rounded-lg border border-gray-200 p-8 text-white shadow" style="background: linear-gradient(135deg, var(--color-school-green) 0%, var(--color-school-green-light) 100%);">
+    <div class="rounded-lg border border-gray-200 p-4 sm:p-8 text-white shadow" style="background: linear-gradient(135deg, var(--color-school-green) 0%, var(--color-school-green-light) 100%);">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-widest mb-2" style="color: var(--color-school-gold-light);">Academic Assessment</p>
@@ -15,7 +15,7 @@
 
     <!-- Instructions -->
     <div v-if="accessDenied" role="alert" class="school-card p-8">
-      <h2 class="text-2xl font-bold text-gray-900 mb-3">Desktop or laptop required</h2>
+      <h2 class="text-2xl font-bold text-gray-900 mb-3">Examination unavailable</h2>
       <p class="text-gray-700 mb-4">{{ accessDenied }}</p>
       <router-link to="/results" class="underline font-semibold">View Exam Results</router-link>
     </div>
@@ -28,7 +28,7 @@
       <router-link to="/results" class="underline font-semibold">View Exam Status</router-link>
     </div>
 
-    <div v-if="!examStarted && !examCompleted && !accessDenied && !examTerminated" class="school-card p-8">
+    <div v-if="!examStarted && !examCompleted && !accessDenied && !examTerminated" class="school-card p-4 sm:p-8">
       <div class="flex items-center space-x-3 mb-6">
         <span class="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold" style="background: var(--color-school-green);">📋</span>
         <h2 class="text-2xl font-bold text-gray-900" style="font-family: var(--font-heading);">Exam Instructions</h2>
@@ -74,7 +74,7 @@
       <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-5">
         <h3 class="font-bold text-red-900 mb-3">Strict Examination Rules</h3>
         <ol class="list-decimal pl-5 space-y-2 text-sm text-red-900">
-          <li>Take the exam on a desktop or laptop with a stable internet connection. Phones and tablets are for viewing portal information and results only.</li>
+          <li>Take the exam on a phone, tablet, laptop, or desktop with a stable internet connection. Keep your device charged and stay on this examination page until you submit.</li>
           <li>Keep this tab active. Opening or switching to another tab or window, switching applications, minimizing the browser, refreshing, closing, or leaving this page ends this attempt immediately. Losing browser focus also ends the attempt.</li>
           <li>An ended attempt cannot be resumed. The server submits the answers already saved; unanswered questions receive zero marks. Ending an attempt counts toward your attempt limit.</li>
           <li>No notes, unauthorized websites, AI tools, communication, or assistance from others. Follow the proctor's instructions and report technical problems immediately.</li>
@@ -98,7 +98,7 @@
     </div>
 
     <div v-if="examStarted && loadError && !examTerminated && !accessDenied" role="alert" class="school-card p-4">{{ loadError }} <button class="underline" @click="loadExam">Reload saved exam</button></div><!-- Exam Interface -->
-    <div v-if="examStarted && !examCompleted && !examTerminated && !accessDenied && currentQuestion" class="school-card p-8">
+    <div v-if="examStarted && !examCompleted && !examTerminated && !accessDenied && currentQuestion" class="school-card p-4 sm:p-8">
       <p role="status" class="mb-4 text-sm" :class="progressWarning ? 'text-red-600' : 'text-green-800'">{{ progressWarning || 'Keep this tab active. Switching away or leaving this page immediately ends your attempt.' }}</p>
       <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 pb-6 border-b border-gray-100 gap-4">
         <div class="flex items-center space-x-6">
@@ -146,7 +146,7 @@
           {{ currentQuestion.question_text }}
         </h3>
 
-        <p class="text-sm text-gray-500 mb-3">Keyboard shortcuts: A–D select an answer; Left and Right arrows move between questions.</p>
+        <p class="text-sm text-gray-500 mb-3">Tap or click an answer to select it. With a keyboard, use A–D to select an answer and the Left and Right arrows to move between questions.</p>
         <div class="space-y-3">
           <label
             v-for="option in ['A', 'B', 'C', 'D']"
@@ -159,7 +159,7 @@
             ]"
             :style="answers[currentQuestion.id] === option ? 'background: rgba(20,83,45,0.04);' : ''"
           >
-            <span class="flex items-center justify-center w-8 h-8 rounded-full border text-sm font-bold mr-4"
+            <span class="flex shrink-0 items-center justify-center w-8 h-8 rounded-full border text-sm font-bold mr-4"
               :class="answers[currentQuestion.id] === option ? 'text-white border-transparent' : 'text-gray-600 border-gray-300'"
               :style="answers[currentQuestion.id] === option ? 'background: var(--color-school-green);' : ''">
               {{ option }}
@@ -171,10 +171,10 @@
               :value="option"
               v-model="answers[currentQuestion.id]"
               @change="saveProgress"
-              class="w-4 h-4"
+              class="w-4 h-4 shrink-0"
               style="accent-color: var(--color-school-green);"
             />
-            <span class="ml-3 text-gray-700">{{ currentQuestion['option_' + option.toLowerCase()] }}</span>
+            <span class="ml-3 min-w-0 break-words text-gray-700">{{ currentQuestion['option_' + option.toLowerCase()] }}</span>
           </label>
         </div>
       </div>
@@ -259,7 +259,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import api from '../utils/api.js';
-import { isMobileExamDevice } from '../utils/exam-device.js';
 import Swal from 'sweetalert2';
 
 const questions = ref([]);
@@ -396,13 +395,9 @@ const loadExam = async () => {
       await sendTermination();
       return;
     }
-    if (isMobileExamDevice()) {
-      accessDenied.value = 'Mobile phones and tablets cannot take the entrance examination. Please use a desktop or laptop with an internet connection. You can view your results on mobile.';
-      return;
-    }
     const access = await api.get('/exam/access');
     if (!access.data.allowed) {
-      accessDenied.value = access.data.message || 'Please use a desktop or laptop with an internet connection.';
+      accessDenied.value = access.data.message || 'The examination is currently unavailable. Please contact the examination proctor.';
       return;
     }
     progressKey = `cdm-exam-progress:v1:${studentId}`;

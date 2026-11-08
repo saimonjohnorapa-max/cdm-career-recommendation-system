@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, devices } from '@playwright/test';
 const student={id:1,first_name:'Browser',last_name:'Test',full_name:'Browser Test',email:'browser@example.invalid',student_number:'BROWSER-1',admission_year:'TEST'};
 const questions=Array.from({length:100},(_,i)=>({id:i+1,category:['General Mathematics','Science','Reading Comprehension','Logical Reasoning','Digital Literacy'][Math.floor(i/20)],question_text:`Browser question ${i+1}`,option_a:'First answer',option_b:'Second answer',option_c:'Third answer',option_d:'Fourth answer'}));
 const fulfill=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
@@ -58,21 +58,54 @@ test('exam instructions require rules acknowledgment',async({page})=>{
   await expect(begin).toBeEnabled();
 });
 
-test('mobile examination is blocked while published results remain viewable',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'userAgent',{get:()=> 'Mozilla/5.0 (iPhone) Mobile'}));
-  let examContentRequests=0;
-  await authenticated(page,(route,path)=>{
-    if(path.endsWith('/exam/result'))return fulfill(route,{exam_completed:true,official_status:'published',official_result:{outcome:'PASSED',score:85}});
-    if(path.endsWith('/exam/session')||path.endsWith('/exam/questions'))examContentRequests++;
-    return fulfill(route,{},404);
+for (const deviceName of ['iPhone SE', 'Pixel 5', 'iPad Mini']) {
+  test.describe(`${deviceName} examination`, () => {
+    const { defaultBrowserType, ...device } = devices[deviceName];
+    test.use(device);
+    test('can start, select answers, navigate, save and submit', async ({ page }) => {
+      let session;
+      let savedAnswer;
+      await authenticated(page, (route, path) => {
+        if (path.endsWith('/exam/questions')) return fulfill(route, { questions: questions.map(({id,category}) => ({id,category})), time_limit:120 });
+        if (path.endsWith('/exam/result')) return fulfill(route, {}, 404);
+        if (path.endsWith('/exam/session')) {
+          const method = route.request().method();
+          if (method === 'POST') session = { success:true, session_id:'mobile-session', attempt_number:1, revision:0, position:0, exam_completed:false, deadline:new Date(Date.now()+7200000).toISOString(), questions, answers:Object.fromEntries(questions.map(q=>[q.id,null])) };
+          if (!session) return fulfill(route, {}, 404);
+          if (method === 'PUT') {
+            const body = route.request().postDataJSON();
+            savedAnswer = body.answers[1];
+            session = { ...session, answers:body.answers, position:body.position, revision:session.revision+1 };
+          }
+          return fulfill(route, { ...session, server_now:new Date().toISOString() });
+        }
+        if (path.endsWith('/exam/submit')) {
+          session = { ...session, ...route.request().postDataJSON(), exam_completed:true };
+          return fulfill(route, session);
+        }
+        return fulfill(route, {}, 404);
+      });
+      await page.goto('/cdm-career-recommendation-system/#/exam');
+      await expect(page.getByRole('heading', {name:'Exam Instructions',exact:true})).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.getByRole('checkbox').check();
+      await page.getByRole('button', {name:'Begin Examination',exact:true}).click();
+      await expect(page.getByRole('heading', {name:'Browser question 1',exact:true})).toBeVisible();
+      await page.getByRole('radio').nth(1).tap();
+      await expect.poll(() => savedAnswer).toBe('B');
+      await page.getByRole('button', {name:/^Next/}).tap();
+      await expect(page.getByRole('heading', {name:'Browser question 2',exact:true})).toBeVisible();
+      await page.getByRole('button', {name:/Previous$/}).tap();
+      await expect(page.getByRole('radio').nth(1)).toBeChecked();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.getByRole('button', {name:'Submit Exam',exact:true}).tap();
+      await page.getByRole('button', {name:'OK',exact:true}).tap();
+      await expect(page.getByRole('heading', {name:'Congratulations on completing the exam!',exact:true})).toBeVisible();
+      expect(session.exam_completed).toBe(true);
+      expect(session.answers[1]).toBe('B');
+    });
   });
-  await page.goto('/cdm-career-recommendation-system/#/exam');
-  await expect(page.getByRole('heading',{name:'Desktop or laptop required',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Begin Examination',exact:true})).toHaveCount(0);
-  expect(examContentRequests).toBe(0);
-  await page.getByRole('link',{name:'View Exam Results',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'PASSED',exact:true})).toBeVisible();
-});
+}
 test('Registrar pass displays PASSED without internal details or numeric score',async({page})=>{
   await authenticated(page,route=>fulfill(route,{exam_completed:true,official_status:'published',official_result:{outcome:'PASSED',score:null,percentage:null,remarks:null}}));
   await page.goto('/cdm-career-recommendation-system/#/results');await expect(page.getByRole('heading',{name:'PASSED',exact:true})).toBeVisible();await expect(page.locator('.official-score')).toHaveCount(0);await expect(page.getByText('Passed by Registrar decision')).toHaveCount(0);

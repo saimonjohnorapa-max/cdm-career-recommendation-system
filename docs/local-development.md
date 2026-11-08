@@ -52,7 +52,7 @@ The portal logos and favicons use Vite's deployment base, so they load from the 
 
 ## Examination configuration
 
-See [examination-policy.md](examination-policy.md) for the migration and examination rules. Signed-in active students can take the exam on a desktop or laptop from any network; no campus IP configuration is required.
+See [examination-policy.md](examination-policy.md) for the migration and examination rules. Signed-in active students can take the exam on a phone, tablet, laptop, or desktop from any network; no campus IP configuration is required.
 
 ## Verification
 
