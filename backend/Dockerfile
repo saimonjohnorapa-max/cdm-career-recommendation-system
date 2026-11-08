@@ -21,4 +21,10 @@ RUN mkdir -p storage/framework/cache storage/framework/sessions \
     storage/framework/views bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-CMD php artisan config:clear && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
+CMD set -eu; \
+    php artisan config:clear; \
+    php artisan migrate --force; \
+    if [ -n "${ADMIN_BOOTSTRAP_EMAIL:-}" ]; then \
+        php artisan admin:invite "$ADMIN_BOOTSTRAP_EMAIL" --name="System Administrator" --role=super_admin; \
+    fi; \
+    exec php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
