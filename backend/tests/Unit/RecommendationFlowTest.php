@@ -220,15 +220,113 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         DB::purge('sqlite');
         // All migrations execute against an isolated, in-memory database only.
         Artisan::call('migrate', ['--force' => true]);
-        // A fresh database has samples only; build a complete bank as an isolated test fixture.
-        $number = (int) ExamQuestion::max('question_number');
-        foreach (\App\Services\ProgramMatcher::INTEREST_CATEGORIES as $category) {
-            $sample = ExamQuestion::where('category', $category)->firstOrFail();
-            for ($count = ExamQuestion::where('category', $category)->where('is_active', true)->count(); $count < 20; $count++) {
-                $copy = $sample->replicate(); $copy->question_number = ++$number; $copy->is_active = true; $copy->save();
-            }
-        }
         Http::preventStrayRequests();
+    }
+
+    public function test_fresh_migrations_provide_twenty_unique_questions_per_topic(): void
+    {
+        $active = ExamQuestion::where('is_active', true)->get();
+        $this->assertCount(100, $active);
+        $this->assertCount(100, $active->unique(fn ($q) => ExamQuestion::contentKey($q->question_text)));
+        foreach (\App\Services\ProgramMatcher::INTEREST_CATEGORIES as $category) {
+            $this->assertCount(20, $active->where('category', $category));
+        }
+        foreach ($active as $question) {
+            $this->assertContains($question->correct_answer, ['A', 'B', 'C', 'D']);
+            $this->assertCount(4, array_unique([
+                $question->option_a, $question->option_b, $question->option_c, $question->option_d,
+            ]));
+            $this->assertStringNotContainsString('Practice variant', $question->question_text);
+        }
+    }
+
+    public function test_unique_bank_repair_keeps_history_and_manager_edits_and_can_be_repeated(): void
+    {
+        $service = app(\App\Services\ExamSessionService::class);
+        $student = $this->examStudent('repair-bank');
+        $session = $service->start($student);
+        $snapshot = $session->questions;
+        $session->update(['answers' => array_column($snapshot, 'correct_answer', 'id')]);
+        $result = $service->withLockedSession($student, $session->id, fn ($locked) => $service->finish($locked));
+
+        $sample = ExamQuestion::where('is_active', true)->firstOrFail();
+        $sample->update(['question_text' => 'An exam manager supplied this distinct question.']);
+        ExamQuestion::where('category', $sample->category)->where('id', '!=', $sample->id)->update(['is_active' => false]);
+        $copy = $sample->replicate();
+        $copy->question_number = (int) ExamQuestion::max('question_number') + 1;
+        $copy->question_text = mb_strtoupper($sample->question_text).' (Practice variant 9)';
+        $copy->save();
+
+        $migration = require __DIR__.'/../../database/migrations/2026_11_13_000001_complete_unique_exam_bank.php';
+        $migration->up();
+        $this->assertFalse($copy->fresh()->is_active);
+        $this->assertSame('An exam manager supplied this distinct question.', $sample->fresh()->question_text);
+        $this->assertTrue($sample->fresh()->is_active);
+        $this->assertCount(100, $service->bank());
+        $this->assertSame($snapshot, $session->fresh()->questions);
+        $this->assertSame(100, (int) $result->fresh()->total_score);
+        $this->assertDatabaseCount('exam_answers', 100);
+        $this->assertDatabaseCount('exam_session_questions', 100);
+        $total = ExamQuestion::count();
+        $migration->up();
+        $this->assertSame($total, ExamQuestion::count());
+        $this->assertSame(100, ExamQuestion::where('is_active', true)->count());
+    }
+
+    public function test_empty_bank_seeder_supplies_unique_questions_and_preserves_existing_content(): void
+    {
+        ExamQuestion::query()->delete();
+        $seeder = new \Database\Seeders\ExamQuestionSeeder;
+        $seeder->run();
+        $bank = app(\App\Services\ExamSessionService::class)->bank();
+        $this->assertCount(100, $bank);
+        $question = $bank->first();
+        $question->update(['question_text' => 'A question edited by an exam manager.']);
+        $seeder->run();
+        $this->assertSame(100, ExamQuestion::count());
+        $this->assertSame('A question edited by an exam manager.', $question->fresh()->question_text);
+    }
+
+    public function test_exam_selection_ignores_practice_copies_and_normalized_duplicates(): void
+    {
+        $sample = ExamQuestion::where('is_active', true)->firstOrFail();
+        $number = (int) ExamQuestion::max('question_number');
+        foreach ([
+            $sample->question_text,
+            mb_strtoupper($sample->question_text),
+            " \t".str_replace(' ', '  ', $sample->question_text)."\n",
+            $sample->question_text.' (Practice variant 2)',
+            $sample->question_text.' (Practice variant 2) (Practice variant 21)',
+        ] as $text) {
+            $copy = $sample->replicate();
+            $copy->question_number = ++$number;
+            $copy->question_text = $text;
+            $copy->save();
+        }
+
+        $student = $this->examStudent('unique-bank');
+        Sanctum::actingAs($student);
+        $questions = $this->postJson('/api/exam/session', ['rules_accepted' => true])
+            ->assertOk()->assertJsonCount(100, 'questions')->json('questions');
+        $keys = array_map(fn ($q) => ExamQuestion::contentKey($q['question_text']), $questions);
+        $this->assertCount(100, array_unique($keys));
+        $this->assertCount(20, array_filter($questions, fn ($q) => $q['category'] === $sample->category));
+    }
+
+    public function test_duplicate_rows_cannot_fill_a_topic_with_too_few_unique_questions(): void
+    {
+        $sample = ExamQuestion::where('is_active', true)->firstOrFail();
+        $topic = ExamQuestion::where('category', $sample->category)->where('is_active', true)->get();
+        $this->assertCount(20, $topic);
+        $topic->last()->update(['question_text' => $sample->question_text.' (Practice variant 20)']);
+
+        $student = $this->examStudent('incomplete-bank');
+        Sanctum::actingAs($student);
+        $this->getJson('/api/exam/questions')->assertOk()->assertJsonCount(99, 'questions');
+        $this->postJson('/api/exam/session', ['rules_accepted' => true])
+            ->assertStatus(422)->assertJsonPath('message', 'The exam bank must contain at least 20 unique active questions in each of the five topics before starting. Please ask the exam manager to complete the question bank.');
+        $this->assertDatabaseCount('exam_sessions', 0);
+        $this->assertDatabaseCount('exam_results', 0);
     }
 
     public function test_randomized_attempts_preserve_topics_resume_and_snapshot_grading(): void
@@ -274,6 +372,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         for ($number = 1; $number <= 100; $number++) {
             $question = $sample->replicate();
             $question->question_number = $number;
+            $question->question_text = "Restored fixture question {$number}.";
             $question->category = match (true) {
                 $number <= 21 => 'General Mathematics',
                 $number <= 47 => 'Science',
@@ -288,7 +387,7 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $migration->up();
         $this->assertSame(100, ExamQuestion::where('is_active', true)->count());
         $this->assertSame(0, ExamQuestion::where('category', 'Technical Aptitude')->count());
-        $this->assertSame($sample->question_text, ExamQuestion::first()->question_text);
+        $this->assertSame('Restored fixture question 1.', ExamQuestion::first()->question_text);
         $balance = require __DIR__.'/../../database/migrations/2026_09_07_000003_complete_twenty_question_topics.php';
         $balance->up();
         $student = Student::create(['first_name' => 'Exam', 'last_name' => 'Test', 'email' => 'full@example.com', 'student_number' => 'FULL-1', 'admission_year' => 2026, 'account_status' => 'active']);

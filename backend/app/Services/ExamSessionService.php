@@ -9,19 +9,22 @@ class ExamSessionService
 {
     public const TIME_LIMIT_MINUTES = 120;
     public const MAX_ATTEMPTS = 2;
-    public function bank()
+    public function bank(bool $randomize = true)
     {
         $bank = ExamQuestion::where('is_active', true)
+            ->whereIn('category', ProgramMatcher::INTEREST_CATEGORIES)
             ->orderBy('question_number')
             ->orderBy('id')
             ->lockForUpdate()
             ->get()
-            ->groupBy('category')
-            ->map(function ($questions) {
-                $unique = $questions->unique('question_text')->values();
-                return $unique->count() >= 20 ? $unique : $questions->values();
-            });
-        return collect(ProgramMatcher::INTEREST_CATEGORIES)->shuffle()->flatMap(fn ($category) => ($bank->get($category) ?? collect())->shuffle()->take(20))->values();
+            ->unique(fn ($question) => ExamQuestion::contentKey($question->question_text))
+            ->groupBy('category');
+        $categories = collect(ProgramMatcher::INTEREST_CATEGORIES);
+        if ($randomize) $categories = $categories->shuffle();
+        return $categories->flatMap(function ($category) use ($bank, $randomize) {
+            $questions = $bank->get($category) ?? collect();
+            return ($randomize ? $questions->shuffle() : $questions)->take(20);
+        })->values();
     }
 
     public function start(Student $student): ExamSession
@@ -33,7 +36,7 @@ class ExamSessionService
             $attempts = ExamResult::where('student_id', $student->id)->latest('id')->get();
             abort_if($attempts->count() >= self::MAX_ATTEMPTS || ($attempts->isNotEmpty() && !$attempts->first()->allowsRetake()) || ($attempts->isEmpty() && $student->exam_taken), 409, 'No exam attempt is available.');
             $questions = $this->bank()->map->only(['id', 'category', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer'])->all();
-            abort_unless(count($questions) === 100, 422, 'The exam bank must contain 20 questions in each of the five topics before starting.');
+            abort_unless(count($questions) === 100, 422, 'The exam bank must contain at least 20 unique active questions in each of the five topics before starting. Please ask the exam manager to complete the question bank.');
             $session = ExamSession::create([
                 'id' => (string) Str::uuid(), 'student_id' => $student->id, 'attempt_number' => $attempts->count() + 1,
                 'bank_version' => hash('sha256', json_encode($questions)), 'questions' => $questions,

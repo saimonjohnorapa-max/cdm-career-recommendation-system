@@ -14,9 +14,7 @@ class ExamController extends Controller
     private const PASSING_SCORE = 75;
     private function examQuestions()
     {
-        $bank = ExamQuestion::where('is_active', true)->orderBy('question_number')->orderBy('id')->get()->groupBy('category');
-        return collect(\App\Services\ProgramMatcher::INTEREST_CATEGORIES)
-            ->flatMap(fn ($category) => ($bank->get($category) ?? collect())->take(20))->values();
+        return app(\App\Services\ExamSessionService::class)->bank(randomize: false);
     }
     public function getQuestions()
     {

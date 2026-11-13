@@ -21,6 +21,13 @@ class ExamQuestion extends Model
 
     protected $casts = ['is_active' => 'boolean'];
 
+    public static function contentKey(string $text): string
+    {
+        // Older bank migrations padded topics with copies carrying these suffixes.
+        $text = preg_replace('/(?:\s*\(Practice variant\s+\d+\))+\s*$/iu', '', trim($text));
+        return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $text)));
+    }
+
     public function examResults()
     {
         return $this->belongsToMany(ExamResult::class, 'exam_answers')

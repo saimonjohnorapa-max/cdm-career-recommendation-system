@@ -1,6 +1,6 @@
 # Entrance examination policy
 
-Updated 8 November 2026. This describes the local implementation; it does not establish that a deployed server has been migrated or configured.
+Updated 13 November 2026. This describes the local implementation; it does not establish that a deployed server has been migrated or configured.
 
 ## Required configuration
 
@@ -11,12 +11,15 @@ cd backend
 php artisan migrate
 ```
 
+The unique-bank migration deactivates repeated active question text while retaining question IDs and historical references, then fills each topic to at least 20 unique questions from the 100-question starter bank. Existing unique active questions are retained. New empty banks also use the complete starter bank when seeded. The backend Docker startup runs migrations automatically.
+
 Signed-in active students can take the examination on a phone, tablet, laptop, or desktop from any network. No campus IP allowlist or examination proxy configuration is required. The former `EXAM_ALLOWED_NETWORKS` and `EXAM_TRUSTED_PROXIES` settings are no longer used and can be removed from hosting environment settings.
 
 Exam-taking routes support all device types. Browser identification, mobile client hints, and the legacy `X-Exam-Device` header do not restrict access. The interface supports touch selection and question navigation on phones and tablets.
 
 ## Examinee rules and session behavior
 
+- New attempts select 20 unique active questions per topic. Duplicate text is compared without case or spacing differences and without legacy `(Practice variant N)` suffixes. If a topic has fewer than 20 unique questions, starting returns `422` so the exam manager can complete the bank; duplicate rows do not fill the shortage. Instructions use the same unique question counts. Existing saved sessions retain their original question snapshots.
 - Read and acknowledge the strict rules before starting. The server requires acknowledgment too.
 - Use a phone, tablet, laptop, or desktop with a stable internet connection. Keep the device charged and the exam page active until submission.
 - Keep the exam tab active. Tab/window changes, browser focus loss, application switches, minimization, refresh, page close and navigation away end the attempt. Browser controls that take focus can also trigger this strict policy.
