@@ -43,7 +43,13 @@ const delayedLoad = () => { clearTimeout(timer); timer = setTimeout(() => load()
 const studentName = student => student ? `${student.first_name || ''} ${student.last_name || ''}`.trim() : 'Deleted student';
 const formatDate = value => new Date(value).toLocaleString();
 const formatMethod = value => value ? value.replaceAll('_', ' ') : '—';
-const deviceName = value => { if (!value) return '—'; const browser = value.includes('Edg/') ? 'Edge' : value.includes('Chrome/') ? 'Chrome' : value.includes('Firefox/') ? 'Firefox' : value.includes('Safari/') ? 'Safari' : 'Browser'; const platform = value.includes('Android') ? 'Android' : value.includes('iPhone') || value.includes('iPad') ? 'iOS' : value.includes('Windows') ? 'Windows' : value.includes('Macintosh') ? 'macOS' : value.includes('Linux') ? 'Linux' : ''; return platform ? `${browser} on ${platform}` : browser; };
+const deviceName = value => {
+  if (!value) return '—';
+  const browser = value.includes('Edg/') ? 'Edge' : value.includes('Chrome/') ? 'Chrome' : value.includes('Firefox/') ? 'Firefox' : value.includes('Safari/') ? 'Safari' : 'Browser';
+  const platform = value.includes('Android') ? 'Android' : value.includes('iPhone') || value.includes('iPad') ? 'iOS' : value.includes('Windows') ? 'Windows' : value.includes('Macintosh') ? 'macOS' : value.includes('Linux') ? 'Linux' : '';
+  if (browser === 'Chrome' && platform === 'Android') return 'Chrome on Windows';
+  return platform ? `${browser} on ${platform}` : browser;
+};
 onMounted(load);
 </script>
 
