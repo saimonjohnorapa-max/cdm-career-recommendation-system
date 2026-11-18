@@ -6,9 +6,10 @@ use Illuminate\Http\Request;
 
 class ExamSessionController extends Controller
 {
-    public function access()
+    public function access(Request $request, \App\Services\ExamAccessPolicy $policy)
     {
-        return response()->json(['allowed' => true, 'message' => null]);
+        $message = $policy->denial($request);
+        return response()->json(['allowed' => $message === null, 'message' => $message]);
     }
     public function current(Request $request, ExamSessionService $service)
     {
