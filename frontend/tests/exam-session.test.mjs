@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isMobileExamDevice } from '../src/utils/exam-device.js';
 const source=readFileSync(new URL('../src/pages/Exam.vue',import.meta.url),'utf8').split('<script setup>')[1].split('</script>')[0].replace(/^import .*;$/gm,'');
 const questions=Array.from({length:100},(_,i)=>({id:i+1,category:['General Mathematics','Science','Reading Comprehension','Logical Reasoning','Digital Literacy'][Math.floor(i/20)],question_text:'Question'}));
 function setup(server={session:null},now=0,storage=new Map(),device={userAgent:'Windows NT'}){
@@ -21,7 +20,7 @@ function setup(server={session:null},now=0,storage=new Map(),device={userAgent:'
   },put:async(_,body)=>{if(body.revision!==server.session.revision)throw{response:{status:409,data:{message:'Changed in another tab'}}};server.session.answers=structuredClone(body.answers);server.session.position=body.position;server.session.revision++;return response()}};
   const Swal={fire:async()=>({isConfirmed:true}),close(){},isVisible:()=>false};
   const document={hidden:false,hasFocus:()=>true};
-  const ctx=vm.createContext({ref:value=>({value}),computed:fn=>({get value(){return fn()}}),api,Swal,isMobileExamDevice:()=>isMobileExamDevice(device),navigator:device,document,console:{error(){}},onMounted(){},onBeforeUnmount(){},Date:{now:()=>now,parse:Date.parse},setInterval:fn=>{tick=fn;return 1},clearInterval(){},setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)}});
+  const ctx=vm.createContext({ref:value=>({value}),computed:fn=>({get value(){return fn()}}),api,Swal,navigator:device,document,console:{error(){}},onMounted(){},onBeforeUnmount(){},Date:{now:()=>now,parse:Date.parse},setInterval:fn=>{tick=fn;return 1},clearInterval(){},setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)}});
   vm.runInContext(source+'\nglobalThis.exam={loadExam,startExam,submitExam,syncProgress,saveProgress,examStarted,examCompleted,answers,timeRemaining,currentQuestion,nextQuestion,previousQuestion,handleAnswerKey,loadError,progressWarning,submitting,showAnswerList,rulesAccepted,accessDenied,examTerminated,endSession,sendTermination,handleBlur,handlePageHide,handleVisibility};',ctx);
   ctx.exam.rulesAccepted.value=true;
   return{...ctx.exam,api,Swal,server,advance:ms=>now+=ms,tick:()=>tick(),posts:()=>posts};
@@ -37,18 +36,16 @@ test('keyboard navigation keeps answers and respects dialogs',async()=>{const e=
 test('cancel submission leaves session active',async()=>{const e=setup();await e.loadExam();await e.startExam();e.Swal.fire=async()=>({isConfirmed:false});await e.submitExam();assert.equal(e.posts(),0);assert.equal(e.examStarted.value,true)});
 
 test('rules acknowledgment is required before starting',async()=>{const e=setup();await e.loadExam();e.rulesAccepted.value=false;await e.startExam();assert.equal(e.server.session,null)});
-for(const device of [{userAgent:'iPhone Mobile'},{userAgent:'Android',userAgentData:{mobile:true}},{userAgent:'iPad'},{userAgent:'Macintosh',maxTouchPoints:5},{userAgent:'Desktop mode',userAgentData:{mobile:true}}]){
-  test(`${device.userAgent} cannot load or start an exam`,async()=>{
+for(const device of [{userAgent:'iPhone Mobile'},{userAgent:'Android',userAgentData:{mobile:true}},{userAgent:'iPad'},{userAgent:'Macintosh',maxTouchPoints:5}]){
+  test(`${device.userAgent} can load, start, save and submit the exam`,async()=>{
     const e=setup({session:null},0,new Map(),device);
-    const requests=[];const get=e.api.get;e.api.get=async path=>{requests.push(path);return get(path)};
     await e.loadExam();await e.startExam();
-    assert.match(e.accessDenied.value,/desktop or laptop/);assert.equal(e.examStarted.value,false);
-    assert.deepEqual(requests,['/auth/profile']);assert.equal(e.server.session,null);
-    assert.equal(e.currentQuestion.value,undefined);assert.equal(e.posts(),0);
+    assert.equal(e.accessDenied.value,'');assert.equal(e.examStarted.value,true);
+    e.answers.value[1]='B';e.nextQuestion();await e.syncProgress();
+    assert.equal(e.server.session.answers[1],'B');assert.equal(e.server.session.position,1);
+    await e.submitExam();assert.equal(e.examCompleted.value,true);assert.equal(e.posts(),1);
   });
 }
-
-test('opening the exam on mobile leaves an existing desktop session unchanged',async()=>{const server={session:null};const desktop=setup(server);await desktop.loadExam();await desktop.startExam();desktop.answers.value[1]='B';await desktop.syncProgress();const before=structuredClone(server);const mobile=setup(server,0,new Map(),{userAgent:'iPhone Mobile'});await mobile.loadExam();await mobile.startExam();await mobile.syncProgress();await mobile.submitExam();assert.deepEqual(server,before);assert.equal(mobile.examStarted.value,false);assert.equal(mobile.examTerminated.value,false)});
 test('server access denial never loads or starts exam content',async()=>{const e=setup({session:null,allowed:false});await e.loadExam();await e.startExam();assert.ok(e.accessDenied.value);assert.equal(e.server.session,null);assert.equal(e.currentQuestion.value,undefined)});
 test('switching away locks immediately and submits only server-saved answers',async()=>{const e=setup();await e.loadExam();await e.startExam();e.answers.value[1]='B';await e.syncProgress();e.answers.value[2]='D';e.handleBlur();assert.equal(e.examTerminated.value,true);await e.sendTermination();assert.equal(e.examCompleted.value,true);assert.equal(e.server.session.answers[1],'B');assert.equal(e.server.session.answers[2],null);await e.submitExam();assert.equal(e.posts(),0)});
 test('page exit terminates only an active attempt',async()=>{const e=setup();e.handlePageHide();assert.equal(e.examTerminated.value,false);await e.loadExam();await e.startExam();e.handlePageHide();await e.sendTermination();assert.equal(e.server.session.termination_reason,'page_left')});

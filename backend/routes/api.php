@@ -73,13 +73,11 @@ Route::middleware(['auth:sanctum', 'student.active'])->group(function () {
     Route::get('/exam/access', [\App\Http\Controllers\ExamSessionController::class, 'access']);
     // Finalization remains possible after network/device changes, but never releases an active exam.
     Route::post('/exam/session/terminate', [\App\Http\Controllers\ExamSessionController::class, 'terminate']);
-    Route::middleware(\App\Http\Middleware\EnsureExamAccess::class)->group(function () {
-        Route::get('/exam/questions', [ExamController::class, 'getQuestions']);
-        Route::get('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'current']);
-        Route::post('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'start']);
-        Route::put('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'save']);
-        Route::post('/exam/submit', [\App\Http\Controllers\ExamSessionController::class, 'submit']);
-    });
+    Route::get('/exam/questions', [ExamController::class, 'getQuestions']);
+    Route::get('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'current']);
+    Route::post('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'start']);
+    Route::put('/exam/session', [\App\Http\Controllers\ExamSessionController::class, 'save']);
+    Route::post('/exam/submit', [\App\Http\Controllers\ExamSessionController::class, 'submit']);
     Route::get('/exam/result', [ExamController::class, 'getExamResult']);
 
     // Results

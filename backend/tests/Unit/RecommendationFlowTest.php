@@ -118,63 +118,28 @@ class RecommendationFlowTest extends \Illuminate\Foundation\Testing\TestCase
         $this->postJson('/api/exam/submit', $body)->assertOk()->assertJsonPath('exam_completed', true);
     }
 
-    public function test_mobile_and_tablets_cannot_access_exam_but_can_view_results(): void
+    public function test_phones_and_tablets_can_load_start_save_and_submit_exam(): void
     {
-        $this->examStudent();
-        foreach ([
-            ['User-Agent' => 'Mozilla/5.0 (iPhone) Mobile'],
-            ['User-Agent' => 'Mozilla/5.0 (Linux; Android 14)'],
-            ['User-Agent' => 'Mozilla/5.0 (iPad)'],
-            ['User-Agent' => 'Mozilla/5.0 (Macintosh)', 'Sec-CH-UA-Mobile' => '?1'],
-            ['User-Agent' => 'Mozilla/5.0 (Macintosh)', 'X-Exam-Device' => 'mobile'],
-        ] as $headers) {
-            $this->flushHeaders();
-            $this->withHeaders($headers);
-            $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', false);
-            $this->getJson('/api/exam/questions')->assertForbidden()->assertJsonPath('exam_access_denied', true);
-            $this->getJson('/api/exam/session')->assertForbidden();
-            $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertForbidden();
-            $this->putJson('/api/exam/session', [])->assertForbidden();
-            $this->postJson('/api/exam/submit', [])->assertForbidden();
-            $this->getJson('/api/exam/result')->assertNotFound();
+        foreach (['Mozilla/5.0 (iPhone) Mobile', 'Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPad)', 'Mozilla/5.0 (Macintosh)'] as $index => $agent) {
+            $this->examStudent('mobile-'.$index);
+            $this->withHeaders(['User-Agent' => $agent, 'Sec-CH-UA-Mobile' => '?1', 'X-Exam-Device' => 'mobile']);
+            $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', true)->assertJsonPath('message', null);
+            $this->getJson('/api/exam/questions')->assertOk();
+            $this->getJson('/api/exam/session')->assertNotFound();
+            $this->postJson('/api/exam/session', ['rules_accepted' => false])->assertUnprocessable();
+            $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
+            $this->getJson('/api/exam/session')->assertOk()->assertJsonPath('session_id', $start['session_id']);
+            $answers = $start['answers'];
+            $firstId = $start['questions'][0]['id'];
+            $answers[$firstId] = ExamQuestion::findOrFail($firstId)->correct_answer;
+            $body = ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $answers, 'position' => 1];
+            $saved = $this->putJson('/api/exam/session', $body)->assertOk()->json();
+            $this->assertSame($answers[$firstId], $saved['answers'][$firstId]);
+            $body['revision'] = $saved['revision'];
+            $this->postJson('/api/exam/submit', $body)->assertOk()->assertJsonPath('exam_completed', true);
+            $this->getJson('/api/exam/result')->assertOk()->assertJsonPath('exam_completed', true);
         }
-        $this->assertDatabaseCount('exam_sessions', 0);
-        $this->assertDatabaseCount('exam_results', 0);
-        $this->assertDatabaseCount('exam_answers', 0);
-    }
-
-    public function test_mobile_denial_preserves_existing_sessions_answers_and_results(): void
-    {
-        $completedStudent = $this->examStudent('completed-before-restriction');
-        $service = app(\App\Services\ExamSessionService::class);
-        $completed = $service->start($completedStudent);
-        $service->withLockedSession($completedStudent, $completed->id, fn ($session) => $service->finish($session));
-        $this->withHeader('User-Agent', 'iPhone');
-        $this->getJson('/api/exam/result')->assertOk()->assertJsonPath('exam_completed', true);
-
-        $this->flushHeaders();
-        $this->examStudent('active-before-restriction');
-        $start = $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertOk()->json();
-        $answers = $start['answers'];
-        $answers[$start['questions'][0]['id']] = 'B';
-        $body = ['session_id' => $start['session_id'], 'revision' => 0, 'answers' => $answers, 'position' => 1];
-        $this->putJson('/api/exam/session', $body)->assertOk();
-        $body['revision'] = 1;
-        $tables = ['exam_sessions', 'exam_session_questions', 'exam_results', 'exam_answers'];
-        $snapshot = fn ($table) => DB::table($table)->orderBy($table === 'exam_session_questions' ? 'exam_question_id' : 'id')->get()->toJson();
-        $before = [];
-        foreach ($tables as $table) $before[$table] = $snapshot($table);
-
-        $this->withHeader('User-Agent', 'iPhone');
-        $this->getJson('/api/exam/access')->assertOk()->assertJsonPath('allowed', false);
-        $this->getJson('/api/exam/session')->assertForbidden();
-        $this->postJson('/api/exam/session', ['rules_accepted' => true])->assertForbidden();
-        $this->putJson('/api/exam/session', $body)->assertForbidden();
-        $this->postJson('/api/exam/submit', $body)->assertForbidden();
-        foreach ($tables as $table) $this->assertSame($before[$table], $snapshot($table), $table.' must remain unchanged');
-
-        $this->withHeader('User-Agent', 'Desktop');
-        $this->getJson('/api/exam/session')->assertOk()->assertJsonPath('session_id', $start['session_id'])->assertJsonPath('revision', 1);
+        $this->assertSame(4, ExamResult::count());
     }
 
     public function test_exam_requires_explicit_rules_acceptance(): void
