@@ -48,7 +48,7 @@
 
         <div class="flex space-x-4 items-start">
           <span class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style="background: var(--color-school-green);">3</span>
-          <p class="text-gray-700 pt-1">Each attempt has five topics with 20 randomly selected questions per topic. Topic order and question order are randomized when you start, including on your retake. You can review your answers while this examination page remains open and active.</p>
+          <p class="text-gray-700 pt-1">Each attempt has five topics with 20 randomly selected questions per topic. Topic order and question order are randomized when you start, including on your retake. You can review your answers before submitting.</p>
         </div>
 
         <div class="flex space-x-4 items-start">
@@ -72,11 +72,12 @@
       <p v-if="loadError" class="mb-4 text-red-600">{{ loadError }}</p>
       <p v-if="progressWarning" role="alert" class="mb-4 text-red-600">{{ progressWarning }}</p>
       <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-5">
-        <h3 class="font-bold text-red-900 mb-3">Strict Examination Rules</h3>
+        <h3 class="font-bold text-red-900 mb-3">{{ automaticTerminationEnabled ? 'Strict Examination Rules' : 'Examination Rules' }}</h3>
         <ol class="list-decimal pl-5 space-y-2 text-sm text-red-900">
           <li>Take the exam on a phone, tablet, laptop, or desktop with a stable internet connection. Keep your device charged and stay on this examination page until you submit.</li>
-          <li>Keep this tab active. Opening or switching to another tab or window, switching applications, minimizing the browser, refreshing, closing, or leaving this page ends this attempt immediately. Losing browser focus also ends the attempt.</li>
-          <li>An ended attempt cannot be resumed. The server submits the answers already saved; unanswered questions receive zero marks. Ending an attempt counts toward your attempt limit.</li>
+          <li v-if="automaticTerminationEnabled">Keep this tab active. Opening or switching to another tab or window, switching applications, minimizing the browser, refreshing, closing, or leaving this page ends this attempt immediately. Losing browser focus also ends the attempt.</li>
+          <li v-else>Automatic session termination is temporarily disabled for testing. Switching tabs or applications, refreshing, or leaving this page will not end your attempt. Return to this page to continue with your saved answers.</li>
+          <li v-if="automaticTerminationEnabled">An ended attempt cannot be resumed. The server submits the answers already saved; unanswered questions receive zero marks. Ending an attempt counts toward your attempt limit.</li>
           <li>No notes, unauthorized websites, AI tools, communication, or assistance from others. Follow the proctor's instructions and report technical problems immediately.</li>
           <li>The timer does not pause. Answers are saved while connected; at the deadline the server submits saved answers. Submitted answers cannot be changed.</li>
           <li>Results are released by the Registrar. One final retake is available only after an official failing first result is published.</li>
@@ -84,7 +85,7 @@
       </div>
       <label class="flex items-start gap-3 mb-5 text-sm text-gray-800">
         <input v-model="rulesAccepted" type="checkbox" class="mt-1" />
-        <span>I have read and agree to the strict examination rules, including immediate session termination if I switch away or leave this page.</span>
+        <span>{{ automaticTerminationEnabled ? 'I have read and agree to the strict examination rules, including immediate session termination if I switch away or leave this page.' : 'I have read and agree to the examination rules.' }}</span>
       </label>
       <button v-if="loadError" @click="loadExam" class="mb-4 underline">Retry loading exam</button>
       <button
@@ -99,7 +100,7 @@
 
     <div v-if="examStarted && loadError && !examTerminated && !accessDenied" role="alert" class="school-card p-4">{{ loadError }} <button class="underline" @click="loadExam">Reload saved exam</button></div><!-- Exam Interface -->
     <div v-if="examStarted && !examCompleted && !examTerminated && !accessDenied && currentQuestion" class="school-card p-4 sm:p-8">
-      <p role="status" class="mb-4 text-sm" :class="progressWarning ? 'text-red-600' : 'text-green-800'">{{ progressWarning || 'Keep this tab active. Switching away or leaving this page immediately ends your attempt.' }}</p>
+      <p role="status" class="mb-4 text-sm" :class="progressWarning ? 'text-red-600' : 'text-green-800'">{{ progressWarning || (automaticTerminationEnabled ? 'Keep this tab active. Switching away or leaving this page immediately ends your attempt.' : 'Your answers are saved automatically. The timer continues if you leave this page.') }}</p>
       <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 pb-6 border-b border-gray-100 gap-4">
         <div class="flex items-center space-x-6">
           <div class="text-center">
@@ -261,6 +262,9 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import api from '../utils/api.js';
 import Swal from 'sweetalert2';
 
+// Temporarily disabled for testing. Set to true to restore automatic termination.
+const automaticTerminationEnabled = false;
+
 const questions = ref([]);
 const currentQuestionIndex = ref(0);
 const answers = ref({});
@@ -389,7 +393,10 @@ const loadExam = async () => {
     const studentId = profile.data?.student?.id;
     if (!studentId) throw new Error('Unable to identify the current student.');
     terminationKey = `cdm-exam-termination:${studentId}`;
-    try { pendingTermination = JSON.parse(localStorage.getItem(terminationKey) || 'null'); } catch { /* Continue with server state. */ }
+    try {
+      if (automaticTerminationEnabled) pendingTermination = JSON.parse(localStorage.getItem(terminationKey) || 'null');
+      else localStorage.removeItem(terminationKey);
+    } catch { /* Continue with server state. */ }
     if (pendingTermination) {
       examTerminated.value = true;
       await sendTermination();
@@ -405,7 +412,7 @@ const loadExam = async () => {
       const active = await api.get('/exam/session');
       applySession(active.data);
       if (!examCompleted.value) {
-        if (document.hidden || !document.hasFocus()) endSession('focus_lost');
+        if (automaticTerminationEnabled && (document.hidden || !document.hasFocus())) endSession('focus_lost');
         else startTimer();
       }
       return;
@@ -474,7 +481,7 @@ const startExam = async () => {
   try {
     applySession((await api.post('/exam/session', { rules_accepted: true })).data);
     if (!examCompleted.value) {
-      if (document.hidden || !document.hasFocus()) endSession('focus_lost');
+      if (automaticTerminationEnabled && (document.hidden || !document.hasFocus())) endSession('focus_lost');
       else startTimer();
     }
   }
@@ -579,7 +586,7 @@ const resumeClock = () => {
 // A small keepalive request can finish after pagehide. A persistent marker prevents
 // this browser from resuming an attempt whose termination could not reach the server.
 const sendTermination = () => {
-  if (!pendingTermination) return Promise.resolve();
+  if (!automaticTerminationEnabled || !pendingTermination) return Promise.resolve();
   if (terminating) return terminating;
   const payload = { ...pendingTermination };
   terminating = api.post('/exam/session/terminate', payload, { adapter: 'fetch', fetchOptions: { keepalive: true } })
@@ -597,7 +604,7 @@ const sendTermination = () => {
 };
 
 const endSession = (reason) => {
-  if (!examStarted.value || examCompleted.value || examTerminated.value) return;
+  if (!automaticTerminationEnabled || !examStarted.value || examCompleted.value || examTerminated.value) return;
   examTerminated.value = true;
   clearInterval(timer.value);
   clearTimeout(saveTimer);

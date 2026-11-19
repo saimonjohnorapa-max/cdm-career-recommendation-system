@@ -17,10 +17,12 @@ test('results failure shows retry instead of no completed exam',async({page})=>{
   await page.goto('/cdm-career-recommendation-system/#/results');await expect(page.getByRole('alert')).toContainText('Temporary failure');await expect(page.getByText('No completed exam yet')).toHaveCount(0);
   failed=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByRole('heading',{name:'PASSED',exact:true})).toBeVisible();
 });
-test('exam saves edits and permanently ends the attempt when the tab is hidden',async({page})=>{
+test('exam keeps saved answers after switching away and refreshing during testing',async({page})=>{
+  let terminations=0;
   let session={success:true,session_id:'session',attempt_number:1,revision:0,position:0,exam_completed:false,deadline:new Date(Date.now()+3600000).toISOString(),questions,answers:Object.fromEntries(questions.map(q=>[q.id,q.id===1?'B':null]))};
   await authenticated(page,(route,path)=>{
     if(path.endsWith('/exam/session/terminate')){
+      terminations++;
       session={...session,exam_completed:true,terminated_at:new Date().toISOString(),termination_reason:route.request().postDataJSON().reason};
       return fulfill(route,{...session,server_now:new Date().toISOString()});
     }
@@ -39,19 +41,26 @@ test('exam saves edits and permanently ends the attempt when the tab is hidden',
   await page.evaluate(()=>{
     Object.defineProperty(document, 'hidden', { configurable:true, get:()=>true });
     document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('blur'));
+    window.dispatchEvent(new Event('pagehide'));
   });
-  await expect(page.getByRole('heading',{name:'Examination session ended',exact:true})).toBeVisible();
-  await expect(page.getByRole('radio')).toHaveCount(0);
-  await expect.poll(()=>session.exam_completed).toBe(true);
+  await expect(page.getByRole('heading',{name:'Examination session ended',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('radio').nth(2)).toBeChecked();
+  expect(session.exam_completed).toBe(false);
+  expect(terminations).toBe(0);
   await page.reload();
-  await expect(page.getByRole('heading',{name:'Examination session ended',exact:true})).toBeVisible();
-  await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Examination session ended',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('radio').nth(2)).toBeChecked();
+  await page.keyboard.press('d');
+  await expect.poll(()=>session.answers[1]).toBe('D');
+  expect(session.exam_completed).toBe(false);
+  expect(terminations).toBe(0);
 });
 
 test('exam instructions require rules acknowledgment',async({page})=>{
   await authenticated(page,(route,path)=>path.endsWith('/exam/questions')?fulfill(route,{questions:questions.map(({id,category})=>({id,category})),time_limit:120}):fulfill(route,{},404));
   await page.goto('/cdm-career-recommendation-system/#/exam');
-  await expect(page.getByText('Strict Examination Rules',{exact:true})).toBeVisible();
+  await expect(page.getByText('Examination Rules',{exact:true})).toBeVisible();
   const begin=page.getByRole('button',{name:'Begin Examination',exact:true});
   await expect(begin).toBeDisabled();
   await page.getByRole('checkbox').check();
