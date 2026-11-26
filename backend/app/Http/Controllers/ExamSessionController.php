@@ -1,14 +1,16 @@
 <?php
 namespace App\Http\Controllers;
 use App\Models\ExamSession;
+use App\Services\ExamAccessPolicy;
 use App\Services\ExamSessionService;
 use Illuminate\Http\Request;
 
 class ExamSessionController extends Controller
 {
-    public function access()
+    public function access(Request $request, ExamAccessPolicy $policy)
     {
-        return response()->json(['allowed' => true, 'message' => null]);
+        $message = $policy->denial($request);
+        return response()->json(['allowed' => $message === null, 'message' => $message]);
     }
     public function current(Request $request, ExamSessionService $service)
     {
